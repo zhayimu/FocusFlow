@@ -136,28 +136,26 @@ export const bookingService = {
     try {
       if (!auth.currentUser) return;
       
-      // 1. Get all bookings for this client (using only clientId for simpler indexing)
       const bookingsQuery = query(
         collection(db, 'bookings'), 
-        where('clientId', '==', clientId)
+        where('clientId', '==', clientId),
+        where('userId', '==', auth.currentUser.uid)
       );
       const bookingSnapshot = await getDocs(bookingsQuery);
-      // Filter by userId client-side as a fallback/safety measure
-      const userBookings = bookingSnapshot.docs.filter(d => d.data().userId === auth.currentUser?.uid);
-      const bookingIds = userBookings.map(d => d.id);
+      const bookingIds = bookingSnapshot.docs.map(d => d.id);
       
       if (bookingIds.length > 0) {
-        // 2. Delete payments associated with these bookings
-        for (let i = 0; i < bookingIds.length; i += 10) {
-          const chunk = bookingIds.slice(i, i + 10);
-          const pq = query(collection(db, 'payments'), where('bookingId', 'in', chunk));
-          const pSnapshot = await getDocs(pq);
-          const pDeletions = pSnapshot.docs.map(d => deleteDoc(doc(db, 'payments', d.id)));
-          await Promise.all(pDeletions);
-        }
+        const pq = query(
+          collection(db, 'payments'), 
+          where('userId', '==', auth.currentUser.uid)
+        );
+        const pSnapshot = await getDocs(pq);
+        const paymentsToDelete = pSnapshot.docs.filter(d => bookingIds.includes(d.data().bookingId));
+        
+        const pDeletions = paymentsToDelete.map(d => deleteDoc(doc(db, 'payments', d.id)));
+        await Promise.all(pDeletions);
 
-        // 3. Delete the bookings themselves
-        const deletions = userBookings.map(d => deleteDoc(doc(db, 'bookings', d.id)));
+        const deletions = bookingSnapshot.docs.map(d => deleteDoc(doc(db, 'bookings', d.id)));
         await Promise.all(deletions);
       }
     } catch (e) { 
@@ -172,11 +170,11 @@ export const bookingService = {
       if (!auth.currentUser) return;
       const q = query(
         collection(db, path), 
-        where('clientId', '==', clientId),
         where('userId', '==', auth.currentUser.uid)
       );
       const snapshot = await getDocs(q);
-      const updates = snapshot.docs.map(d => updateDoc(doc(db, 'bookings', d.id), data));
+      const toUpdate = snapshot.docs.filter(d => d.data().clientId === clientId);
+      const updates = toUpdate.map(d => updateDoc(doc(db, 'bookings', d.id), data));
       await Promise.all(updates);
     } catch (e) { handleFirestoreError(e, OperationType.UPDATE, path); }
   }

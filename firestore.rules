@@ -15,8 +15,8 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.email_verified == true;
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && userId == request.auth.uid;
+    function isOwner(docData) {
+      return isSignedIn() && docData.keys().hasAll(['userId']) && docData.userId == request.auth.uid;
     }
 
     function isAdmin() {
@@ -75,37 +75,37 @@ service cloud.firestore {
 
     // Collection Rules
     match /clients/{clientId} {
-      allow get: if isOwner(existing().userId) || isAdmin();
-      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow get: if isOwner(existing()) || isAdmin() || (isSignedIn() && !existing().keys().hasAll(['userId']));
+      allow list: if isSignedIn() && (!resource.data.keys().hasAll(['userId']) || resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isSignedIn() && isValidId(clientId) && isValidClient(incoming());
-      allow update: if isOwner(existing().userId) || isAdmin();
-      allow delete: if isOwner(existing().userId) || isAdmin() || (isSignedIn() && !existing().keys().hasAll(['userId']));
+      allow update: if isOwner(existing()) || isAdmin() || (isSignedIn() && !existing().keys().hasAll(['userId']));
+      allow delete: if isOwner(existing()) || isAdmin() || (isSignedIn() && !existing().keys().hasAll(['userId']));
     }
 
     match /bookings/{bookingId} {
-      allow get: if isOwner(existing().userId);
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isOwner(existing()) || isAdmin() || (isSignedIn() && !existing().keys().hasAll(['userId']));
+      allow list: if isSignedIn() && (!resource.data.keys().hasAll(['userId']) || resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isEmailVerified() && isValidId(bookingId) && isValidBooking(incoming()) &&
                       exists(/databases/$(database)/documents/clients/$(incoming().clientId));
-      allow update: if isOwner(existing().userId) || isAdmin();
-      allow delete: if isOwner(existing().userId) || isAdmin();
+      allow update: if isOwner(existing()) || isAdmin() || (isSignedIn() && !existing().keys().hasAll(['userId']));
+      allow delete: if isOwner(existing()) || isAdmin() || (isSignedIn() && !existing().keys().hasAll(['userId']));
     }
 
     match /payments/{paymentId} {
-      allow get: if isOwner(existing().userId);
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isOwner(existing()) || isAdmin() || (isSignedIn() && !existing().keys().hasAll(['userId']));
+      allow list: if isSignedIn() && (!resource.data.keys().hasAll(['userId']) || resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isEmailVerified() && isValidId(paymentId) && isValidPayment(incoming()) &&
                       exists(/databases/$(database)/documents/bookings/$(incoming().bookingId));
-      allow delete: if isOwner(existing().userId) || isAdmin();
+      allow delete: if isOwner(existing()) || isAdmin() || (isSignedIn() && !existing().keys().hasAll(['userId']));
     }
 
     match /expenses/{expenseId} {
-      allow get: if isOwner(existing().userId);
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isOwner(existing()) || isAdmin() || (isSignedIn() && !existing().keys().hasAll(['userId']));
+      allow list: if isSignedIn() && (!resource.data.keys().hasAll(['userId']) || resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isEmailVerified() && isValidId(expenseId) && isValidExpense(incoming());
-      allow update: if (isOwner(existing().userId) || isAdmin()) &&
+      allow update: if (isOwner(existing()) || isAdmin() || (isSignedIn() && !existing().keys().hasAll(['userId']))) &&
                       incoming().diff(existing()).affectedKeys().hasOnly(['amount', 'date', 'description', 'category']);
-      allow delete: if isOwner(existing().userId) || isAdmin();
+      allow delete: if isOwner(existing()) || isAdmin() || (isSignedIn() && !existing().keys().hasAll(['userId']));
     }
   }
 }

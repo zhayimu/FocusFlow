@@ -46,44 +46,46 @@ export default function Crm() {
   });
 
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [clientToDelete, setClientToDelete] = useState<{id: string, name: string} | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     return clientService.subscribe(setClients);
   }, []);
 
-  const handleDeleteClient = async (id: string, name: string) => {
-    console.log(`Initiating delete for client: ${id} (${name})`);
-    if (window.confirm(`Are you sure you want to delete ${name}? This will permanently remove the client and all associated inquiry/booking records.`)) {
-      setIsDeleting(id);
+  const confirmDeleteClient = async () => {
+    if (!clientToDelete) return;
+    const { id, name } = clientToDelete;
+    
+    setIsDeleting(id);
+    setClientToDelete(null);
+    try {
+      // 1. Attempt to delete associated bookings (non-blocking for the client record)
       try {
-        // 1. Attempt to delete associated bookings (non-blocking for the client record)
-        try {
-          console.log('Attempting relational cleanup...');
-          await bookingService.deleteAllByClientId(id);
-        } catch (bookingErr) {
-          console.warn('Booking cleanup failed, proceeding with client deletion:', bookingErr);
-        }
-
-        // 2. Delete the primary client record
-        console.log('Deleting primary client record...');
-        await clientService.delete(id);
-        
-        setSuccessMessage(`Client ${name} has been removed.`);
-        setTimeout(() => setSuccessMessage(null), 3000);
-      } catch (err: any) {
-        console.error('CRITICAL: Failed to delete client:', err);
-        let errorMsg = 'Could not delete client.';
-        try {
-          const parsed = JSON.parse(err.message);
-          errorMsg = `Error: ${parsed.error}\nPath: ${parsed.path}\nOp: ${parsed.operationType}\nUID: ${parsed.authInfo?.userId}`;
-        } catch {
-          errorMsg = err.message || 'Unknown error occurred.';
-        }
-        alert(`Deletion Failed:\n${errorMsg}\n\nThis usually means you don't have permission to delete this specific record.`);
-      } finally {
-        setIsDeleting(null);
+        console.log('Attempting relational cleanup...');
+        await bookingService.deleteAllByClientId(id);
+      } catch (bookingErr) {
+        console.warn('Booking cleanup failed, proceeding with client deletion:', bookingErr);
       }
+
+      // 2. Delete the primary client record
+      console.log('Deleting primary client record...');
+      await clientService.delete(id);
+      
+      setSuccessMessage(`Client ${name} has been removed.`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      console.error('CRITICAL: Failed to delete client:', err);
+      let errorMsg = 'Could not delete client.';
+      try {
+        const parsed = JSON.parse(err.message);
+        errorMsg = `Error: ${parsed.error}\nPath: ${parsed.path}\nOp: ${parsed.operationType}\nUID: ${parsed.authInfo?.userId}`;
+      } catch {
+        errorMsg = err.message || 'Unknown error occurred.';
+      }
+      alert(`Deletion Failed:\n${errorMsg}\n\nThis usually means you don't have permission to delete this specific record.`);
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -281,7 +283,7 @@ export default function Crm() {
                         <FileText size={18} />
                       </button>
                       <button 
-                        onClick={() => handleDeleteClient(client.id, client.name)}
+                        onClick={() => setClientToDelete({id: client.id, name: client.name})}
                         disabled={isDeleting === client.id}
                         className={cn(
                           "p-2 bg-zinc-900 border border-zinc-800 rounded-lg transition-all active:scale-95",
@@ -389,6 +391,48 @@ export default function Crm() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {clientToDelete && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+              onClick={() => setClientToDelete(null)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-sm bg-zinc-900 border border-red-500/20 rounded-3xl overflow-hidden shadow-2xl p-8 text-center"
+            >
+              <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 text-red-500">
+                <Trash2 size={32} />
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">Delete Inquiry?</h2>
+              <p className="text-sm text-zinc-400 mb-8">
+                Are you sure you want to delete <strong className="text-white">{clientToDelete.name}</strong>? This action will permanently remove the client and all associated bookings.
+              </p>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setClientToDelete(null)}
+                  className="flex-1 px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-bold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={confirmDeleteClient}
+                  className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold shadow-lg shadow-red-500/20 transition-all active:scale-95"
+                >
+                  Delete
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
