@@ -7,7 +7,7 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 
-// Connectivity check
+// Connectivity check (deferred to avoid boot interference)
 async function testConnection() {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
@@ -17,4 +17,4 @@ async function testConnection() {
     }
   }
 }
-testConnection();
+setTimeout(testConnection, 2000);

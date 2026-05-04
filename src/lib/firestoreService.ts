@@ -78,6 +78,14 @@ export const clientService = {
       const docRef = doc(db, 'clients', id);
       await updateDoc(docRef, data);
     } catch (e) { handleFirestoreError(e, OperationType.UPDATE, path); }
+  },
+
+  async delete(id: string) {
+    const path = `clients/${id}`;
+    try {
+      const docRef = doc(db, 'clients', id);
+      await deleteDoc(docRef);
+    } catch (e) { handleFirestoreError(e, OperationType.DELETE, path); }
   }
 };
 
@@ -114,6 +122,62 @@ export const bookingService = {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       callback(data);
     }, (e) => handleFirestoreError(e, OperationType.GET, path));
+  },
+
+  async delete(id: string) {
+    const path = `bookings/${id}`;
+    try {
+      const docRef = doc(db, 'bookings', id);
+      await deleteDoc(docRef);
+    } catch (e) { handleFirestoreError(e, OperationType.DELETE, path); }
+  },
+
+  async deleteAllByClientId(clientId: string) {
+    try {
+      if (!auth.currentUser) return;
+      
+      // 1. Get all bookings for this client
+      const bookingsQuery = query(
+        collection(db, 'bookings'), 
+        where('clientId', '==', clientId),
+        where('userId', '==', auth.currentUser.uid)
+      );
+      const bookingSnapshot = await getDocs(bookingsQuery);
+      const bookingIds = bookingSnapshot.docs.map(d => d.id);
+      
+      if (bookingIds.length > 0) {
+        // 2. Delete payments in chunks of 10 (Firestore 'in' limit)
+        for (let i = 0; i < bookingIds.length; i += 10) {
+          const chunk = bookingIds.slice(i, i + 10);
+          const pq = query(collection(db, 'payments'), where('bookingId', 'in', chunk));
+          const pSnapshot = await getDocs(pq);
+          const pDeletions = pSnapshot.docs.map(d => deleteDoc(doc(db, 'payments', d.id)));
+          await Promise.all(pDeletions);
+        }
+
+        // 3. Delete the bookings themselves
+        const deletions = bookingSnapshot.docs.map(d => deleteDoc(doc(db, 'bookings', d.id)));
+        await Promise.all(deletions);
+      }
+    } catch (e) { 
+      console.error('Relational delete failed:', e);
+      handleFirestoreError(e, OperationType.DELETE, 'inquiries_cascade'); 
+    }
+  },
+
+  async updateByClientId(clientId: string, data: any) {
+    const path = 'bookings';
+    try {
+      if (!auth.currentUser) return;
+      const q = query(
+        collection(db, path), 
+        where('clientId', '==', clientId),
+        where('userId', '==', auth.currentUser.uid)
+      );
+      const snapshot = await getDocs(q);
+      const updates = snapshot.docs.map(d => updateDoc(doc(db, 'bookings', d.id), data));
+      await Promise.all(updates);
+    } catch (e) { handleFirestoreError(e, OperationType.UPDATE, path); }
   }
 };
 

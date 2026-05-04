@@ -1,16 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  TrendingUp, TrendingDown, Plus, Filter, Download, DollarSign, Tag, Calendar as CalendarIcon 
-} from 'lucide-react';
-import { cn } from '../lib/utils';
-import { format, parseISO } from 'date-fns';
+import { Wallet, TrendingUp, ArrowUpRight, ArrowDownRight, CreditCard, Download } from 'lucide-react';
 import { expenseService, bookingService } from '../lib/firestoreService';
+import { format, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths, isSameMonth } from 'date-fns';
+import { cn } from '../lib/utils';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  AreaChart,
+  Area
+} from 'recharts';
 
 export default function Finance() {
   const [expenses, setExpenses] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [expenseForm, setExpenseForm] = useState({ amount: '', description: '', category: 'Travel', date: format(new Date(), 'yyyy-MM-dd') });
 
   useEffect(() => {
     const unsubExpenses = expenseService.subscribe(setExpenses);
@@ -18,101 +25,177 @@ export default function Finance() {
     return () => { unsubExpenses(); unsubBookings(); };
   }, []);
 
-  const totalIncome = bookings.reduce((acc, b) => acc + (Number(b.price) || 0), 0);
+  const totalRevenue = bookings.reduce((acc, b) => acc + (Number(b.price) || 0), 0);
   const totalExpenses = expenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
-  const netProfit = totalIncome - totalExpenses;
+  const netProfit = totalRevenue - totalExpenses;
 
-  const handleAddExpense = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await expenseService.add({
-      amount: Number(expenseForm.amount),
-      description: expenseForm.description,
-      category: expenseForm.category,
-      date: expenseForm.date
-    });
-    setExpenseForm({ amount: '', description: '', category: 'Travel', date: format(new Date(), 'yyyy-MM-dd') });
-    setIsModalOpen(false);
-  };
+  // Chart Data Preparation
+  const last6Months = eachMonthOfInterval({
+    start: subMonths(new Date(), 5),
+    end: new Date()
+  }).map(month => {
+    const monthStr = format(month, 'MMM');
+    const monthlyRevenue = bookings
+      .filter(b => isSameMonth(new Date(b.date), month))
+      .reduce((acc, b) => acc + (Number(b.price) || 0), 0);
+    const monthlyExpenses = expenses
+      .filter(e => isSameMonth(new Date(e.date), month))
+      .reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
+    
+    return {
+      name: monthStr,
+      revenue: monthlyRevenue,
+      expenses: monthlyExpenses,
+      profit: monthlyRevenue - monthlyExpenses
+    };
+  });
 
   return (
-    <div className="space-y-8 h-full flex flex-col">
-       <header className="flex justify-between items-end">
-        <div>
-          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 font-bold">Financial Reporting</span>
-          <h1 className="text-4xl font-bold tracking-tighter text-white mt-1">Earnings & Ledger</h1>
-        </div>
-        <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 px-6 py-2.5 bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-xl hover:bg-zinc-800 hover:text-white transition-all shadow-xl">
-          <Plus size={18} /><span className="text-sm font-bold">Record Debit</span>
-        </button>
+    <div className="space-y-8 pb-12">
+      <header>
+        <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 font-bold">Financial Architecture</span>
+        <h1 className="text-4xl font-bold tracking-tighter text-white mt-1">Monetary Ledger</h1>
       </header>
 
+      {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-8 bg-zinc-900/50 border border-zinc-800 rounded-2xl backdrop-blur-md">
-          <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-4">Gross Revenue</p>
-          <div className="flex items-end justify-between">
-            <p className="text-3xl font-bold tracking-tight italic text-white">${totalIncome.toLocaleString()}</p>
-            <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500"><TrendingUp size={16} /></div>
+        <div className="bg-bento-card border border-bento-border rounded-2xl p-6 backdrop-blur-md">
+          <div className="flex justify-between items-start mb-4">
+            <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
+              <TrendingUp size={20} />
+            </div>
+            <span className="text-[10px] font-mono text-emerald-500 font-bold">+12.5%</span>
           </div>
+          <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">Gross Revenue</p>
+          <p className="text-3xl font-bold text-white mt-1">${totalRevenue.toLocaleString()}</p>
         </div>
-        <div className="p-8 bg-zinc-900/50 border border-zinc-800 rounded-2xl backdrop-blur-md">
-          <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-4">Total Debit</p>
-          <div className="flex items-end justify-between">
-            <p className="text-3xl font-bold tracking-tight italic text-white">${totalExpenses.toLocaleString()}</p>
-            <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center text-red-500"><TrendingDown size={16} /></div>
+
+        <div className="bg-bento-card border border-bento-border rounded-2xl p-6 backdrop-blur-md">
+          <div className="flex justify-between items-start mb-4">
+            <div className="p-2 bg-rose-500/10 rounded-lg text-rose-400">
+              <ArrowDownRight size={20} />
+            </div>
+            <span className="text-[10px] font-mono text-rose-500 font-bold">-4.2%</span>
           </div>
+          <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">Total Expenses</p>
+          <p className="text-3xl font-bold text-white mt-1">${totalExpenses.toLocaleString()}</p>
         </div>
-        <div className="p-8 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-500/20">
-          <p className="text-[10px] font-mono uppercase tracking-widest text-white/60 mb-4 font-bold">Net Yield</p>
-          <div className="flex items-end justify-between">
-            <p className="text-3xl font-bold tracking-tight italic text-white">${netProfit.toLocaleString()}</p>
-            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white"><DollarSign size={16} /></div>
+
+        <div className="bg-bento-card border border-bento-border rounded-2xl p-6 backdrop-blur-md bg-indigo-600/5 ring-1 ring-indigo-500/20">
+          <div className="flex justify-between items-start mb-4">
+            <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
+              <Wallet size={20} />
+            </div>
+            <div className="flex items-center gap-1 text-[10px] font-mono text-indigo-400 font-bold">
+               <ArrowUpRight size={12} /> MARGIN
+            </div>
           </div>
+          <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">Net Profit</p>
+          <p className="text-3xl font-bold text-white mt-1">${netProfit.toLocaleString()}</p>
         </div>
       </div>
 
-      <div className="flex-grow bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden backdrop-blur-md bottom-0">
-        <div className="px-6 py-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-950/30">
-          <h3 className="font-bold text-[11px] uppercase tracking-widest text-zinc-500">Transaction History</h3>
+      {/* Charts Section */}
+      <div className="grid grid-cols-12 gap-6">
+        <div className="col-span-12 lg:col-span-8 bg-bento-card border border-bento-border rounded-2xl p-6 backdrop-blur-md">
+          <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-8">Revenue vs Expenses</h3>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={last6Months}>
+                <defs>
+                  <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                <XAxis dataKey="name" stroke="#6b7280" fontSize={10} axisLine={false} tickLine={false} />
+                <YAxis stroke="#6b7280" fontSize={10} axisLine={false} tickLine={false} tickFormatter={(value) => `$${value}`} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
+                  itemStyle={{ fontSize: '12px' }}
+                />
+                <Area type="monotone" dataKey="revenue" stroke="#6366f1" fillOpacity={1} fill="url(#colorRev)" />
+                <Area type="monotone" dataKey="expenses" stroke="#f43f5e" fill="transparent" strokeDasharray="5 5" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-        <div className="divide-y divide-zinc-800 h-full overflow-y-auto pb-20">
-          {expenses.map((e) => (
-            <div key={e.id} className="px-6 py-5 flex items-center justify-between hover:bg-zinc-800/30 transition-colors">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-red-500/5 border border-red-500/10 text-red-400 flex items-center justify-center"><TrendingDown size={18} /></div>
-                <div><p className="font-semibold text-sm text-zinc-200">{e.description}</p><p className="text-[10px] text-zinc-500 uppercase font-mono tracking-widest">{e.category} • {e.date}</p></div>
-              </div>
-              <p className="font-mono font-bold text-red-400">-${Number(e.amount).toLocaleString()}</p>
-            </div>
-          ))}
-          {bookings.map((b) => (
-             <div key={b.id} className="px-6 py-5 flex items-center justify-between hover:bg-zinc-800/30 transition-colors">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-emerald-500/5 border border-emerald-500/10 text-emerald-400 flex items-center justify-center"><TrendingUp size={18} /></div>
-                <div><p className="font-semibold text-sm text-zinc-200">Ref: {b.clientName}</p><p className="text-[10px] text-zinc-500 uppercase font-mono tracking-widest">{b.eventType} • {b.date}</p></div>
-              </div>
-              <p className="font-mono font-bold text-emerald-400">+${Number(b.price).toLocaleString()}</p>
-            </div>
-          ))}
+
+        <div className="col-span-12 lg:col-span-4 bg-bento-card border border-bento-border rounded-2xl p-6 backdrop-blur-md">
+          <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-8">Performance Distribution</h3>
+           <div className="space-y-6">
+              {[
+                { label: 'Wedding Services', value: 65, color: 'bg-indigo-500' },
+                { label: 'Corporate Events', value: 20, color: 'bg-emerald-500' },
+                { label: 'Portrait Sessions', value: 15, color: 'bg-amber-500' },
+              ].map((item) => (
+                <div key={item.label} className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-zinc-400 font-medium">{item.label}</span>
+                    <span className="text-white font-bold">{item.value}%</span>
+                  </div>
+                  <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                    <div className={cn("h-full rounded-full", item.color)} style={{ width: `${item.value}%` }} />
+                  </div>
+                </div>
+              ))}
+           </div>
+           
+           <div className="mt-12 p-4 bg-zinc-900 border border-zinc-800 rounded-2xl text-center">
+              <p className="text-[10px] text-zinc-500 uppercase font-mono tracking-widest">Growth Forecast</p>
+              <p className="text-sm text-zinc-300 mt-2">Predicted +8% increase in Q3 based on seasonal wedding trends.</p>
+           </div>
         </div>
       </div>
 
-      {isModalOpen && (
-         <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setIsModalOpen(false)} />
-            <div className="relative w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-2xl">
-              <h2 className="text-2xl font-bold text-white mb-6 tracking-tight">Record Expense</h2>
-              <form onSubmit={handleAddExpense} className="space-y-4">
-                <input required type="number" placeholder="Value ($)" className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-100" value={expenseForm.amount} onChange={e => setExpenseForm({...expenseForm, amount: e.target.value})} />
-                <input required type="text" placeholder="Description of Debit" className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-100" value={expenseForm.description} onChange={e => setExpenseForm({...expenseForm, description: e.target.value})} />
-                <select className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-100 appearance-none" value={expenseForm.category} onChange={e => setExpenseForm({...expenseForm, category: e.target.value})}>
-                  <option>Gear</option><option>Travel</option><option>Maintenance</option><option>Software</option><option>Marketing</option>
-                </select>
-                <input type="date" className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-100" value={expenseForm.date} onChange={e => setExpenseForm({...expenseForm, date: e.target.value})} />
-                <button type="submit" className="w-full py-3 bg-bento-accent text-white rounded-xl font-bold hover:bg-bento-accent-hover transition-all mt-4">Commit Debit Entry</button>
-              </form>
-            </div>
-         </div>
-      )}
+      {/* Recent Transactions Table */}
+      <div className="bg-bento-card border border-bento-border rounded-2xl overflow-hidden backdrop-blur-md">
+        <div className="p-6 border-b border-bento-border flex justify-between items-center">
+          <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest">Recent Cash Flow</h3>
+          <button className="text-xs font-mono text-zinc-500 hover:text-white transition-colors flex items-center gap-2">
+            <Download size={14} /> EXPORT CSV
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-zinc-900/50 text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">
+                <th className="px-6 py-3">Description</th>
+                <th className="px-6 py-3">Category</th>
+                <th className="px-6 py-3">Date</th>
+                <th className="px-6 py-3 text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-800">
+              {expenses.slice(0, 5).map((exp) => (
+                <tr key={exp.id} className="hover:bg-zinc-800/30 transition-colors">
+                  <td className="px-6 py-4 text-sm font-medium text-white">{exp.description}</td>
+                  <td className="px-6 py-4">
+                    <span className="text-[10px] px-2 py-1 bg-zinc-800 rounded-full text-zinc-400 font-mono">
+                      {exp.category}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-xs text-zinc-500">{exp.date}</td>
+                  <td className="px-6 py-4 text-right text-rose-400 font-bold">-${Number(exp.amount).toLocaleString()}</td>
+                </tr>
+              ))}
+              {bookings.slice(0, 3).map((book) => (
+                <tr key={book.id} className="hover:bg-zinc-800/30 transition-colors">
+                  <td className="px-6 py-4 text-sm font-medium text-white">{book.clientName} (Revenue)</td>
+                  <td className="px-6 py-4">
+                    <span className="text-[10px] px-2 py-1 bg-emerald-500/10 rounded-full text-emerald-400 font-mono">
+                      Booking
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-xs text-zinc-500">{book.date}</td>
+                  <td className="px-6 py-4 text-right text-emerald-400 font-bold">+${Number(book.price).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

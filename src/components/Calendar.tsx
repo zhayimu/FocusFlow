@@ -46,8 +46,8 @@ export default function Calendar() {
     while (day <= endDate) {
       for (let i = 0; i < 7; i++) {
         const formattedDate = format(day, 'd');
-        const cloneDay = day;
-        const dayEvents = events.filter(e => isSameDay(parseISO(e.date), cloneDay));
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const dayEvents = events.filter(e => e.date === dateStr);
 
         days.push(
           <div key={day.toString()} className={cn("min-h-[120px] p-4 border border-zinc-900 transition-all bg-zinc-900/20 relative group hover:bg-zinc-800/40", !isSameMonth(day, monthStart) ? "text-zinc-700" : "text-zinc-100", isSameDay(day, new Date()) && "bg-indigo-500/5 ring-1 ring-inset ring-indigo-500/20")}>

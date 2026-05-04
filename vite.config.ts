@@ -9,10 +9,12 @@ export default defineConfig(({mode}) => {
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+      'global': 'window',
     },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        'undici': 'process/browser', // Attempt to stub undici if it's being pulled in
       },
     },
     server: {
