@@ -1,0 +1,82 @@
+{
+  "entities": {
+    "Client": {
+      "title": "Client",
+      "description": "Photographer's client record",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "remarks": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Event booking details",
+      "type": "object",
+      "properties": {
+        "clientId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "eventType": { "type": "string" },
+        "price": { "type": "number" },
+        "deposit": { "type": "number" },
+        "balance": { "type": "number" },
+        "location": { "type": "string" },
+        "status": { 
+          "type": "string", 
+          "enum": ["Booked", "Shot", "Editing", "Review", "Delivered"] 
+        },
+        "remarks": { "type": "string" },
+        "calendarId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["clientId", "date", "eventType", "price", "status"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Financial transaction record",
+      "type": "object",
+      "properties": {
+        "bookingId": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["Deposit", "Final", "Other"] },
+        "method": { "type": "string" }
+      },
+      "required": ["bookingId", "amount", "date", "type"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Business expense record",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date-time" },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "category": { "type": "string" }
+      },
+      "required": ["date", "amount", "description"]
+    }
+  },
+  "firestore": {
+    "/clients/{clientId}": {
+      "schema": "Client",
+      "description": "Core client data"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Booking and production status"
+    },
+    "/payments/{paymentId}": {
+      "schema": "Payment",
+      "description": "Payment history"
+    },
+    "/expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "Financial outgoings"
+    }
+  }
+}

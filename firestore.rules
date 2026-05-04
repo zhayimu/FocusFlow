@@ -1,0 +1,115 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && userId is string && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == "zaimzaidi04@gmail.com" ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Phase 4: Entity Validators
+    function isValidClient(data) {
+      return data.keys().hasAll(['name', 'userId', 'createdAt']) &&
+             data.keys().size() <= 7 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.userId == request.auth.uid &&
+             data.createdAt == request.time;
+    }
+
+    function isValidBooking(data) {
+      return data.keys().hasAll(['clientId', 'userId', 'date', 'eventType', 'price', 'status', 'createdAt']) &&
+             data.keys().size() <= 12 &&
+             data.clientId is string &&
+             data.userId == request.auth.uid &&
+             data.price is number && data.price >= 0 &&
+             data.status in ['Booked', 'Shot', 'Editing', 'Review', 'Delivered'] &&
+             data.createdAt == request.time;
+    }
+
+    function isValidPayment(data) {
+      return data.keys().hasAll(['bookingId', 'userId', 'amount', 'date', 'type', 'createdAt']) &&
+             data.amount is number &&
+             data.userId == request.auth.uid &&
+             data.createdAt == request.time;
+    }
+
+    function isValidExpense(data) {
+      return data.keys().hasAll(['userId', 'amount', 'date', 'description', 'createdAt']) &&
+             data.amount is number &&
+             data.userId == request.auth.uid &&
+             data.createdAt == request.time;
+    }
+
+    // Collection Rules
+    match /clients/{clientId} {
+      allow get: if isOwner(existing().userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isEmailVerified() && isValidId(clientId) && isValidClient(incoming());
+      allow update: if isOwner(existing().userId) && 
+                      incoming().userId == existing().userId &&
+                      incoming().createdAt == existing().createdAt &&
+                      (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'email', 'phone', 'remarks']));
+      allow delete: if isOwner(existing().userId);
+    }
+
+    match /bookings/{bookingId} {
+      allow get: if isOwner(existing().userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isEmailVerified() && isValidId(bookingId) && isValidBooking(incoming()) &&
+                      exists(/databases/$(database)/documents/clients/$(incoming().clientId));
+      allow update: if isOwner(existing().userId) &&
+                      incoming().userId == existing().userId &&
+                      incoming().createdAt == existing().createdAt &&
+                      (incoming().diff(existing()).affectedKeys().hasOnly(['date', 'eventType', 'price', 'deposit', 'balance', 'location', 'status', 'remarks', 'calendarId']));
+      allow delete: if isOwner(existing().userId);
+    }
+
+    match /payments/{paymentId} {
+      allow get: if isOwner(existing().userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isEmailVerified() && isValidId(paymentId) && isValidPayment(incoming()) &&
+                      exists(/databases/$(database)/documents/bookings/$(incoming().bookingId));
+      allow delete: if isOwner(existing().userId);
+    }
+
+    match /expenses/{expenseId} {
+      allow get: if isOwner(existing().userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isEmailVerified() && isValidId(expenseId) && isValidExpense(incoming());
+      allow update: if isOwner(existing().userId) &&
+                      incoming().diff(existing()).affectedKeys().hasOnly(['amount', 'date', 'description', 'category']);
+      allow delete: if isOwner(existing().userId);
+    }
+  }
+}
