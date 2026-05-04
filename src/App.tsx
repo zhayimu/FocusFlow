@@ -138,10 +138,7 @@ export default function App() {
                </button>
             </div>
           </div>
-          <div className="px-4 py-4 bg-zinc-900 border border-zinc-800 rounded-2xl">
-            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">Storage Policy</p>
-            <p className="text-xs mt-2 text-zinc-400 leading-relaxed italic">"Capture the light, secure the data."</p>
-          </div>
+
         </div>
       </aside>
 

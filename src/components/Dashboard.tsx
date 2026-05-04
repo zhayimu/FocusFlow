@@ -98,13 +98,13 @@ const Dashboard = () => {
       {/* Header Stat Cards */}
       <div className="col-span-4 bg-bento-card border border-bento-border rounded-2xl p-6 flex flex-col justify-between backdrop-blur-md">
         <div className="flex justify-between items-start text-zinc-500">
-          <span className="text-xs font-semibold uppercase tracking-wider">Total Revenue</span>
+          <span className="text-xs font-semibold uppercase tracking-wider">Total Income</span>
           <Wallet size={20} className="opacity-40" />
         </div>
         <div>
           <p className="text-3xl font-bold tracking-tight italic text-white">${totalRevenue.toLocaleString()}</p>
           <div className="text-sm text-emerald-400 flex items-center gap-1 mt-1 font-medium">
-             Current Season
+             Lifetime Earnings
           </div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-4 border-t border-zinc-800 pt-4 font-mono">
