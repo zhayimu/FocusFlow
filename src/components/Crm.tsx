@@ -186,20 +186,20 @@ export default function Crm() {
   );
 
   return (
-    <div className="space-y-8 h-full flex flex-col">
-      <header className="flex justify-between items-end">
+    <div className="space-y-4 md:space-y-8 h-full flex flex-col">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 font-bold">Relationship Architecture</span>
-          <h1 className="text-4xl font-bold tracking-tighter text-white mt-1">Clients</h1>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tighter text-white mt-1">Clients</h1>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 w-full sm:w-auto">
           <AnimatePresence>
             {successMessage && (
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
-                className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium rounded-xl"
+                className="hidden md:block px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium rounded-xl"
               >
                 {successMessage}
               </motion.div>
@@ -207,7 +207,7 @@ export default function Crm() {
           </AnimatePresence>
           <button 
             onClick={openAddModal}
-            className="flex items-center gap-2 px-6 py-2.5 bg-bento-accent text-white rounded-xl hover:bg-bento-accent-hover transition-all duration-300 shadow-lg shadow-indigo-500/20"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-bento-accent text-white rounded-xl hover:bg-bento-accent-hover transition-all duration-300 shadow-lg shadow-indigo-500/20"
           >
             <UserPlus size={18} />
             <span className="text-sm font-semibold">New Entry</span>
@@ -222,13 +222,14 @@ export default function Crm() {
         <input 
           type="text"
           placeholder="Filter inquiries..."
-          className="w-full pl-12 pr-6 py-4 bg-bento-card border border-bento-border rounded-2xl focus:outline-none focus:border-indigo-500/50 transition-all text-zinc-100 placeholder:text-zinc-600"
+          className="w-full pl-12 pr-6 py-3 md:py-4 bg-bento-card border border-bento-border rounded-2xl focus:outline-none focus:border-indigo-500/50 transition-all text-zinc-100 placeholder:text-zinc-600"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
-      <div className="flex-grow bg-bento-card border border-bento-border rounded-2xl overflow-auto min-h-0 backdrop-blur-md shadow-inner">
+      {/* Desktop Table View */}
+      <div className="hidden md:block flex-grow bg-bento-card border border-bento-border rounded-2xl overflow-auto scrollbar-hide min-h-0 backdrop-blur-md shadow-inner">
         <table className="w-full text-left border-collapse relative">
           <thead className="sticky top-0 z-10 bg-zinc-900 border-b border-bento-border">
             <tr>
@@ -307,30 +308,76 @@ export default function Crm() {
         </table>
       </div>
 
+      {/* Mobile Card View */}
+      <div className="md:hidden flex-grow overflow-y-auto scrollbar-hide space-y-4 pb-4">
+        {filteredClients.length === 0 ? (
+          <div className="py-20 text-center text-zinc-700 italic text-lg font-medium bg-bento-card border border-bento-border rounded-2xl">
+            No active inquiries found.
+          </div>
+        ) : (
+          filteredClients.map((client) => (
+            <div key={client.id} className="bg-bento-card border border-bento-border rounded-2xl p-5 space-y-4 shadow-lg backdrop-blur-md">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center font-bold text-indigo-400 text-sm">
+                    {client.name.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-zinc-100">{client.name}</p>
+                    <p className="text-[11px] text-zinc-300 font-mono italic">{client.phone}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => openEditModal(client)}
+                    className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-500 active:text-indigo-400"
+                  >
+                    <Edit size={18} />
+                  </button>
+                  <button 
+                    onClick={() => setClientToDelete({id: client.id, name: client.name})}
+                    className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-500 active:text-red-400"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              </div>
+              
+              {client.remarks && (
+                <div className="p-3 bg-zinc-950/50 rounded-xl border border-zinc-800/50">
+                  <p className="text-[10px] uppercase font-mono tracking-widest text-zinc-500 mb-1">Remarks</p>
+                  <p className="text-xs text-zinc-400 italic line-clamp-2 leading-relaxed">"{client.remarks}"</p>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-6">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
               onClick={() => setIsModalOpen(false)}
             />
             <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              initial={{ opacity: 0, scale: 0.95, y: 100 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-lg bg-zinc-900 border border-bento-border rounded-3xl overflow-hidden shadow-2xl"
+              exit={{ opacity: 0, scale: 0.95, y: 100 }}
+              className="relative w-full max-w-lg bg-zinc-900 border border-bento-border rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col"
             >
-              <div className="p-8 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
-                <h2 className="text-2xl font-bold tracking-tight text-white">{editingClient ? 'Edit Inquiry' : 'Add New Inquiry'}</h2>
+              <div className="p-6 md:p-8 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50 shrink-0">
+                <h2 className="text-xl md:text-2xl font-bold tracking-tight text-white">{editingClient ? 'Edit' : 'New Entry'}</h2>
                 <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-zinc-800 rounded-full text-zinc-500 transition-colors"><X size={20} /></button>
               </div>
 
-              <form onSubmit={handleAddClient} className="p-8 space-y-6">
+              <form onSubmit={handleAddClient} className="p-6 md:p-8 space-y-6 overflow-y-auto scrollbar-hide">
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 ml-1">Client Name</label>
                       <input required type="text" placeholder="John Doe" className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:border-indigo-500/50 text-zinc-100" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
@@ -342,16 +389,14 @@ export default function Crm() {
                        </select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2 col-span-2">
-                       <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 ml-1">Phone Link</label>
-                       <input required type="tel" placeholder="+60 12-345 6789" className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:border-indigo-500/50 text-zinc-100" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
-                    </div>
+                  <div className="space-y-2">
+                     <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 ml-1">Phone Link</label>
+                     <input required type="tel" placeholder="+60 12-345 6789" className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:border-indigo-500/50 text-zinc-100" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 ml-1">Schedule</label>
-                      <input required type="date" className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:border-indigo-500/50 text-zinc-100" value={formData.eventDate} onChange={(e) => setFormData({...formData, eventDate: e.target.value})} />
+                      <input required type="date" className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:border-indigo-500/50 text-zinc-100 placeholder-zinc-500" value={formData.eventDate} onChange={(e) => setFormData({...formData, eventDate: e.target.value})} />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 ml-1">Budget ($)</label>
@@ -367,13 +412,13 @@ export default function Crm() {
                     <textarea rows={3} className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:border-indigo-500/50 text-zinc-100 resize-none" value={formData.remarks} onChange={(e) => setFormData({...formData, remarks: e.target.value})} />
                   </div>
                 </div>
-                <div className="flex gap-3 pt-4">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-6 py-3 border border-zinc-800 rounded-xl font-medium text-zinc-400 hover:bg-zinc-800 transition-colors">Cancel</button>
+                <div className="flex gap-3 pt-4 sm:static sticky bottom-0 bg-zinc-900 pb-2 sm:pb-0">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="hidden sm:block flex-1 px-6 py-3 border border-zinc-800 rounded-xl font-medium text-zinc-400 hover:bg-zinc-800 transition-colors">Cancel</button>
                   <button 
                     type="submit" 
                     disabled={isSaving}
                     className={cn(
-                      "flex-[2] px-6 py-3 bg-bento-accent text-white rounded-xl font-bold transition-all shadow-lg shadow-indigo-500/20 active:scale-95",
+                      "flex-1 sm:flex-[2] px-6 py-4 sm:py-3 bg-bento-accent text-white rounded-xl font-bold transition-all shadow-lg shadow-indigo-500/20 active:scale-95",
                       isSaving ? "opacity-50 cursor-not-allowed" : "hover:bg-bento-accent-hover"
                     )}
                   >

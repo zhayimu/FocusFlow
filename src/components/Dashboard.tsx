@@ -94,15 +94,15 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="grid grid-cols-12 gap-6 h-full pb-10">
+    <div className="grid grid-cols-12 gap-4 md:gap-6 h-full">
       {/* Header Stat Cards */}
-      <div className="col-span-6 bg-bento-card border border-bento-border rounded-2xl p-6 flex flex-col justify-between backdrop-blur-md">
+      <div className="col-span-12 sm:col-span-6 bg-bento-card border border-bento-border rounded-2xl p-6 flex flex-col justify-between backdrop-blur-md">
         <div className="flex justify-between items-start text-zinc-500">
           <span className="text-xs font-semibold uppercase tracking-wider">Total Income</span>
           <Wallet size={20} className="opacity-40" />
         </div>
         <div>
-          <p className="text-3xl font-bold tracking-tight italic text-white">${totalRevenue.toLocaleString()}</p>
+          <p className="text-2xl md:text-3xl font-bold tracking-tight italic text-white">${totalRevenue.toLocaleString()}</p>
           <div className="text-sm text-emerald-400 flex items-center gap-1 mt-1 font-medium">
              Lifetime Earnings
           </div>
@@ -115,13 +115,13 @@ const Dashboard = () => {
         </div>
       </div>
       
-      <div className="col-span-6 bg-bento-card border border-bento-border rounded-2xl p-6 flex flex-col justify-between backdrop-blur-md">
+      <div className="col-span-12 sm:col-span-6 bg-bento-card border border-bento-border rounded-2xl p-6 flex flex-col justify-between backdrop-blur-md">
         <div className="flex justify-between items-start text-zinc-500">
           <span className="text-xs font-semibold uppercase tracking-wider">Active Projects</span>
           <Camera size={20} className="opacity-40" />
         </div>
         <div>
-          <p className="text-3xl font-bold tracking-tight italic text-indigo-400">{bookings.filter(b => b.status !== 'Delivered').length}</p>
+          <p className="text-2xl md:text-3xl font-bold tracking-tight italic text-indigo-400">{bookings.filter(b => b.status !== 'Delivered').length}</p>
           <div className="text-sm text-zinc-500 flex items-center gap-1 mt-1">
              {upcomingEvents.length} active events
           </div>
@@ -129,7 +129,7 @@ const Dashboard = () => {
       </div>
 
       {/* Hero Section - Replaced with Bento Calendar */}
-      <section className="col-span-12 lg:col-span-8 bg-bento-card border border-bento-border rounded-2xl p-6 backdrop-blur-md">
+      <section className="col-span-12 lg:col-span-8 bg-bento-card border border-bento-border rounded-2xl p-4 md:p-6 backdrop-blur-md">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-indigo-500/10 rounded flex items-center justify-center text-indigo-400">

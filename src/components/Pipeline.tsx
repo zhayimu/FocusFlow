@@ -43,38 +43,38 @@ export default function Pipeline() {
     : projects.filter(p => p.status === filterStatus);
 
   return (
-    <div className="space-y-8 pb-12">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <div className="space-y-6 md:space-y-8 pb-12">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6">
         <div>
           <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 font-bold">Production Control</span>
-          <h1 className="text-4xl font-bold tracking-tighter text-white mt-1">Workflow Pipeline</h1>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tighter text-white mt-1">Workflow Pipeline</h1>
         </div>
         
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-nowrap md:flex-wrap gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
           <button 
             onClick={() => setFilterStatus('All')}
             className={cn(
-              "px-4 py-2 rounded-xl text-[10px] font-mono uppercase tracking-widest transition-all border",
+              "px-3 md:px-4 py-2 rounded-xl text-[9px] md:text-[10px] font-mono uppercase tracking-widest transition-all border shrink-0",
               filterStatus === 'All' 
                 ? "bg-zinc-100 text-black border-zinc-100 font-bold" 
                 : "bg-zinc-900/50 text-zinc-500 border-zinc-800 hover:border-zinc-700"
             )}
           >
-            All Projects
+            All
           </button>
           {STAGES.map(stage => (
             <button 
               key={stage.id}
               onClick={() => setFilterStatus(stage.id)}
               className={cn(
-                "px-4 py-2 rounded-xl text-[10px] font-mono uppercase tracking-widest transition-all border flex items-center gap-2",
+                "px-3 md:px-4 py-2 rounded-xl text-[9px] md:text-[10px] font-mono uppercase tracking-widest transition-all border flex items-center gap-1.5 md:gap-2 shrink-0",
                 filterStatus === stage.id 
                   ? `${stage.colorClass} text-white border-transparent font-bold` 
                   : "bg-zinc-900/50 text-zinc-500 border-zinc-800 hover:border-zinc-700"
               )}
             >
-              <stage.icon size={12} />
-              {stage.id}
+              <stage.icon size={12} className="shrink-0" />
+              <span className="inline">{stage.id}</span>
             </button>
           ))}
         </div>
@@ -95,32 +95,32 @@ export default function Pipeline() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  className="bg-bento-card border border-bento-border rounded-2xl p-6 backdrop-blur-sm group hover:border-zinc-700 transition-all"
+                  className="bg-bento-card border border-bento-border rounded-2xl p-4 md:p-6 backdrop-blur-sm group hover:border-zinc-700 transition-all"
                 >
-                  <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center">
+                  <div className="flex flex-col lg:flex-row gap-4 md:gap-6 items-start lg:items-center">
                     {/* Project Info */}
-                    <div className="flex-1 min-w-0 space-y-2">
-                      <div className="flex items-center gap-3">
-                        <h3 className="text-lg font-bold text-white truncate">{project.clientName}</h3>
+                    <div className="flex-1 min-w-0 space-y-2 w-full">
+                      <div className="flex items-center justify-between lg:justify-start gap-3">
+                        <h3 className="text-base md:text-lg font-bold text-white truncate">{project.clientName}</h3>
                         <span className={cn(
-                          "text-[10px] px-2 py-0.5 rounded-md font-mono uppercase tracking-widest whitespace-nowrap text-white",
+                          "text-[9px] md:text-[10px] px-2 py-0.5 rounded-md font-mono uppercase tracking-widest whitespace-nowrap text-white",
                           STAGES.find(s => s.id === project.status)?.colorClass || "bg-zinc-800"
                         )}>
                           {project.eventType}
                         </span>
                       </div>
-                      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-zinc-500">
+                      <div className="flex flex-wrap items-center gap-x-4 md:gap-x-6 gap-y-2 text-[11px] md:text-xs text-zinc-500">
                         <div className="flex items-center gap-1.5">
-                          <Calendar size={14} className="text-zinc-600" />
+                          <Calendar size={13} className="text-zinc-600" />
                           <span className="font-mono">{format(parseISO(project.date), 'dd MMM yyyy')}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <Tag size={14} className="text-zinc-600" />
+                          <Tag size={13} className="text-zinc-600" />
                           <span>${Number(project.price).toLocaleString()}</span>
                         </div>
                         {project.location && (
-                          <div className="flex items-center gap-1.5 truncate max-w-[200px]">
-                            <ChevronRight size={14} className="text-zinc-600" />
+                          <div className="flex items-center gap-1.5 truncate max-w-full sm:max-w-[200px]">
+                            <ChevronRight size={13} className="text-zinc-600" />
                             <span className="truncate">{project.location}</span>
                           </div>
                         )}
@@ -130,7 +130,7 @@ export default function Pipeline() {
                     {/* Status Switcher */}
                     <div className="w-full lg:w-auto">
                       <div className={cn(
-                        "flex items-center gap-1 bg-zinc-950/50 p-1.5 rounded-2xl border border-zinc-800/50 transition-opacity",
+                        "flex flex-wrap items-center gap-1 bg-zinc-950/50 p-1 md:p-1.5 rounded-xl md:rounded-2xl border border-zinc-800/50 transition-opacity",
                         filterStatus !== 'All' && "opacity-40"
                       )}>
                         {STAGES.map((stage) => {
@@ -143,33 +143,27 @@ export default function Pipeline() {
                               disabled={!isSwitchable}
                               onClick={() => updateStatus(project.id, stage.id)}
                               className={cn(
-                                "flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-xl transition-all relative group/btn",
+                                "flex-1 sm:flex-none flex items-center justify-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg md:rounded-xl transition-all relative group/btn",
                                 isActive 
                                   ? `${stage.activeVariant} ring-1 ring-inset ${stage.borderVariant}`
                                   : isSwitchable ? "text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800/50" : "text-zinc-800 cursor-not-allowed"
                               )}
-                              title={isSwitchable ? `Set status to ${stage.label}` : "Status changes only available in 'All Projects' view"}
+                              title={isSwitchable ? `Set status to ${stage.label}` : "Status changes only available in 'All' view"}
                             >
-                              <stage.icon size={16} strokeWidth={isActive ? 2.5 : 2} />
+                              <stage.icon size={14} className="md:w-4 md:h-4 shrink-0" strokeWidth={isActive ? 2.5 : 2} />
                               <span className={cn(
-                                "text-[10px] font-bold uppercase tracking-wider lg:hidden xl:block",
-                                isActive ? "opacity-100" : "opacity-0 group-hover/btn:opacity-100 transition-opacity hidden sm:block"
+                                "text-[9px] md:text-[10px] font-bold uppercase tracking-wider",
+                                isActive ? "inline" : "hidden md:group-hover/btn:inline"
                               )}>
                                 {stage.label}
                               </span>
-                              {isActive && (
-                                <motion.div 
-                                  layoutId={`active-stage-${project.id}`}
-                                  className={cn("absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full", stage.colorClass)}
-                                />
-                              )}
                             </button>
                           );
                         })}
                       </div>
                       {filterStatus !== 'All' && (
                         <p className="text-[9px] text-zinc-600 font-mono uppercase tracking-tighter mt-2 text-center lg:text-right">
-                          Switch to 'All Projects' to change status
+                          Switch to 'All' to change status
                         </p>
                       )}
                     </div>

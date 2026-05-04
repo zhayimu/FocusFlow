@@ -20,7 +20,7 @@ import Finance from './components/Finance';
 import Calendar from './components/Calendar';
 
 // Helper Components
-const SidebarItem = ({ icon: Icon, label, active, onClick }: { icon: any, label: string, active: boolean, onClick: () => void }) => (
+const SidebarItem = ({ icon: Icon, label, active, onClick }: { icon: any, label: string, active: boolean, onClick: () => void, key?: string }) => (
   <button 
     onClick={onClick}
     className={cn(
@@ -89,10 +89,18 @@ export default function App() {
     return <LoginScreen login={login} loggingIn={loggingIn} />;
   }
 
+  const navItems = [
+    { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
+    { id: 'crm', label: 'Clients', icon: Users },
+    { id: 'pipeline', label: 'Pipeline', icon: Kanban },
+    { id: 'calendar', label: 'Calendar', icon: CalendarIcon },
+    { id: 'finance', label: 'Report', icon: Wallet },
+  ] as const;
+
   return (
-    <div className="flex min-h-screen bg-bento-bg text-zinc-100 font-sans">
-      {/* Sidebar */}
-      <aside className="w-64 border-r border-bento-border p-6 space-y-8 sticky top-0 h-screen overflow-y-auto bg-bento-bg">
+    <div className="flex flex-col md:flex-row min-h-screen bg-bento-bg text-zinc-100 font-sans overflow-hidden">
+      {/* Desktop Sidebar */}
+      <aside className="hidden md:flex flex-col w-64 border-r border-bento-border p-6 space-y-8 sticky top-0 h-screen bg-bento-bg">
         <div className="flex items-center gap-4 px-2">
           <div className="w-10 h-10 bg-bento-accent rounded-lg flex items-center justify-center text-white shadow-lg shadow-indigo-500/10">
             <Camera size={22} strokeWidth={2.5} />
@@ -104,36 +112,15 @@ export default function App() {
         </div>
 
         <nav className="space-y-1">
-          <SidebarItem 
-            icon={LayoutDashboard} 
-            label="Home" 
-            active={activeTab === 'dashboard'} 
-            onClick={() => setActiveTab('dashboard')} 
-          />
-          <SidebarItem 
-            icon={Users} 
-            label="Clients" 
-            active={activeTab === 'crm'} 
-            onClick={() => setActiveTab('crm')} 
-          />
-          <SidebarItem 
-            icon={Kanban} 
-            label="Pipeline" 
-            active={activeTab === 'pipeline'} 
-            onClick={() => setActiveTab('pipeline')} 
-          />
-          <SidebarItem 
-            icon={CalendarIcon} 
-            label="Calendar" 
-            active={activeTab === 'calendar'} 
-            onClick={() => setActiveTab('calendar')} 
-          />
-          <SidebarItem 
-            icon={Wallet} 
-            label="Report" 
-            active={activeTab === 'finance'} 
-            onClick={() => setActiveTab('finance')} 
-          />
+          {navItems.map((item) => (
+            <SidebarItem 
+              key={item.id}
+              icon={item.icon} 
+              label={item.label} 
+              active={activeTab === item.id} 
+              onClick={() => { setActiveTab(item.id); }} 
+            />
+          ))}
         </nav>
 
         <div className="pt-8 border-t border-bento-border mt-auto space-y-6">
@@ -146,12 +133,24 @@ export default function App() {
                </button>
             </div>
           </div>
-
         </div>
       </aside>
 
+      {/* Mobile Header */}
+      <header className="md:hidden flex items-center justify-between p-4 border-b border-bento-border bg-bento-bg/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-bento-accent rounded-lg flex items-center justify-center text-white">
+            <Camera size={18} strokeWidth={2.5} />
+          </div>
+          <h1 className="text-base font-bold tracking-tight text-white">FocusFlow</h1>
+        </div>
+        <button onClick={logout} className="text-zinc-500 hover:text-red-400 transition-colors">
+          <LogOut size={18} />
+        </button>
+      </header>
+
       {/* Main Content */}
-      <main className="flex-1 p-8 h-screen overflow-y-auto">
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto overflow-x-hidden scrollbar-hide pb-24 md:pb-8">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -169,6 +168,33 @@ export default function App() {
           </motion.div>
         </AnimatePresence>
       </main>
+
+      {/* Mobile Bottom Nav */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-zinc-950/90 backdrop-blur-xl border-t border-bento-border flex items-center justify-around px-2 z-50 pb-safe">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={cn(
+                "flex flex-col items-center gap-1 transition-colors relative px-4",
+                isActive ? "text-indigo-400" : "text-zinc-500"
+              )}
+            >
+              <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+              <span className="text-[10px] font-medium">{item.label}</span>
+              {isActive && (
+                <motion.div 
+                  layoutId="mobile-indicator" 
+                  className="absolute -bottom-2 w-8 h-1 bg-indigo-400 rounded-full"
+                />
+              )}
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 }

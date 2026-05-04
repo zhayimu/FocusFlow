@@ -85,20 +85,20 @@ export default function Finance() {
   }, [bookings, selectedYear]);
 
   return (
-    <div className="space-y-8 pb-12">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <div className="space-y-6 md:space-y-8 pb-12">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6">
         <div>
           <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 font-bold">Financial Analytics</span>
-          <h1 className="text-4xl font-bold tracking-tighter text-white mt-1">Income Dashboard</h1>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tighter text-white mt-1">Income Dashboard</h1>
         </div>
         
-        <div className="flex items-center gap-4 bg-zinc-900 border border-zinc-800 p-1.5 rounded-2xl">
+        <div className="flex flex-nowrap md:flex-wrap items-center gap-2 bg-zinc-900 border border-zinc-800 p-1.5 rounded-2xl w-full sm:w-fit overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-1.5">
           {years.map(year => (
             <button
               key={year}
               onClick={() => setSelectedYear(year)}
               className={cn(
-                "px-6 py-2 rounded-xl text-xs font-bold transition-all",
+                "px-4 md:px-6 py-2 rounded-xl text-xs font-bold transition-all",
                 selectedYear === year 
                   ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20" 
                   : "text-zinc-500 hover:text-zinc-300"
@@ -111,7 +111,7 @@ export default function Finance() {
       </header>
 
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         <div className="bg-bento-card border border-bento-border rounded-2xl p-6 backdrop-blur-md relative overflow-hidden group">
           <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/5 rounded-full blur-3xl group-hover:bg-emerald-500/10 transition-colors" />
           <div className="flex justify-between items-start mb-4">
@@ -123,7 +123,7 @@ export default function Finance() {
             </div>
           </div>
           <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">Total Income ({selectedYear})</p>
-          <p className="text-4xl font-bold text-white mt-1 tracking-tight">${yearIncome.toLocaleString()}</p>
+          <p className="text-3xl md:text-4xl font-bold text-white mt-1 tracking-tight">${yearIncome.toLocaleString()}</p>
         </div>
 
         <div className="bg-bento-card border border-bento-border rounded-2xl p-6 backdrop-blur-md relative overflow-hidden group">
@@ -137,10 +137,10 @@ export default function Finance() {
             </div>
           </div>
           <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">All-Time Income</p>
-          <p className="text-4xl font-bold text-white mt-1 tracking-tight">${allTimeIncome.toLocaleString()}</p>
+          <p className="text-3xl md:text-4xl font-bold text-white mt-1 tracking-tight">${allTimeIncome.toLocaleString()}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-indigo-600/10 to-transparent border border-indigo-500/20 rounded-2xl p-6 backdrop-blur-md flex flex-col justify-center">
+        <div className="col-span-1 sm:col-span-2 lg:col-span-1 bg-gradient-to-br from-indigo-600/10 to-transparent border border-indigo-500/20 rounded-2xl p-6 backdrop-blur-md flex flex-col justify-center">
            <div className="flex items-center gap-3 text-indigo-400 mb-2">
              <Calendar size={18} />
              <span className="text-xs font-bold uppercase tracking-wider">Monthly Projection</span>
@@ -152,16 +152,16 @@ export default function Finance() {
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-12 gap-6">
-        <div className="col-span-12 lg:col-span-8 bg-bento-card border border-bento-border rounded-2xl p-8 backdrop-blur-md">
-          <div className="flex justify-between items-center mb-10">
-            <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest">Monthly Income Distribution</h3>
+      <div className="grid grid-cols-12 gap-4 md:gap-6">
+        <div className="col-span-12 lg:col-span-8 bg-bento-card border border-bento-border rounded-2xl p-5 md:p-8 backdrop-blur-md">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 md:mb-10">
+            <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest">Monthly Distribution</h3>
             <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-500">
               <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
               REVENUE IN USD
             </div>
           </div>
-          <div className="h-[400px] w-full">
+          <div className="h-[300px] md:h-[400px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
@@ -212,21 +212,21 @@ export default function Finance() {
           </div>
         </div>
 
-        <div className="col-span-12 lg:col-span-4 bg-bento-card border border-bento-border rounded-2xl p-8 backdrop-blur-md flex flex-col justify-between">
+        <div className="col-span-12 lg:col-span-4 bg-bento-card border border-bento-border rounded-2xl p-6 md:p-8 backdrop-blur-md flex flex-col justify-between">
            <div>
-             <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-10">Category Performance</h3>
-             <div className="space-y-8">
+             <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-8 md:mb-10">Category Performance</h3>
+             <div className="space-y-6 md:space-y-8">
                {categoryDistribution.length === 0 ? (
                  <p className="text-xs text-zinc-600 italic">No category data for this year.</p>
                ) : (
                  categoryDistribution.map((item, index) => (
                    <div key={item.label} className="space-y-3">
                      <div className="flex justify-between items-end">
-                       <div>
-                         <p className="text-xs font-bold text-white uppercase tracking-wider">{item.label}</p>
-                         <p className="text-[10px] text-zinc-500 font-mono mt-1">${item.amount.toLocaleString()}</p>
+                       <div className="min-w-0 flex-1">
+                         <p className="text-xs font-bold text-white uppercase tracking-wider truncate pb-1">{item.label}</p>
+                         <p className="text-[10px] text-zinc-500 font-mono italic">${item.amount.toLocaleString()}</p>
                        </div>
-                       <span className="text-xs font-mono text-indigo-400 font-bold">{item.value}%</span>
+                       <span className="text-xs font-mono text-indigo-400 font-bold ml-2">{item.value}%</span>
                      </div>
                      <div className="h-1.5 bg-zinc-900 rounded-full overflow-hidden">
                        <motion.div 
@@ -242,7 +242,7 @@ export default function Finance() {
              </div>
            </div>
 
-           <div className="mt-12 p-5 bg-zinc-950/50 border border-zinc-800/50 rounded-2xl">
+           <div className="mt-10 md:mt-12 p-4 md:p-5 bg-zinc-950/50 border border-zinc-800/50 rounded-2xl">
               <p className="text-[10px] text-zinc-500 uppercase font-mono tracking-[0.2em] mb-2 font-bold text-center">Efficiency Insight</p>
               <p className="text-xs text-zinc-400 leading-relaxed text-center">
                 {categoryDistribution[0] 
@@ -254,22 +254,24 @@ export default function Finance() {
         </div>
       </div>
 
-      {/* Transaction Table */}
-      <div className="bg-bento-card border border-bento-border rounded-3xl overflow-hidden backdrop-blur-md shadow-2xl shadow-black/50">
-        <div className="p-8 border-b border-bento-border flex justify-between items-center">
+      {/* Transaction View */}
+      <div className="bg-bento-card border border-bento-border rounded-[2rem] overflow-hidden backdrop-blur-md">
+        <div className="p-6 md:p-8 border-b border-bento-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h3 className="text-lg font-bold text-white tracking-tight">Revenue Stream</h3>
             <p className="text-xs text-zinc-500 mt-1">Incoming payments for photography services.</p>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 text-xs font-mono">
+          <div className="px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 text-[10px] font-mono uppercase tracking-widest">
             {bookings.filter(b => b.date.startsWith(selectedYear.toString())).length} Entries
           </div>
         </div>
-        <div className="overflow-x-auto">
+        
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto scrollbar-hide">
           <table className="w-full text-left">
             <thead>
               <tr className="bg-zinc-900/50 text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
-                <th className="px-8 py-4">Client Name</th>
+                <th className="px-8 py-4 shrink-0">Client Name</th>
                 <th className="px-8 py-4">Type</th>
                 <th className="px-8 py-4">Date</th>
                 <th className="px-8 py-4 text-right">Income</th>
@@ -304,6 +306,25 @@ export default function Finance() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card List View */}
+        <div className="md:hidden divide-y divide-zinc-800/50">
+          {bookings
+            .filter(b => b.date.startsWith(selectedYear.toString()))
+            .sort((a, b) => b.date.localeCompare(a.date))
+            .map((book) => (
+            <div key={book.id} className="p-4 flex justify-between items-center bg-zinc-900/20">
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-white">{book.clientName}</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] px-2 py-0.5 bg-zinc-800 rounded text-zinc-400 uppercase font-bold tracking-wider">{book.eventType}</span>
+                  <span className="text-[9px] text-zinc-600 font-mono">{book.date}</span>
+                </div>
+              </div>
+              <p className="text-emerald-400 font-black text-sm leading-none">+${Number(book.price).toLocaleString()}</p>
+            </div>
+          ))}
           {bookings.filter(b => b.date.startsWith(selectedYear.toString())).length === 0 && (
             <div className="py-20 text-center">
               <p className="text-zinc-600 font-medium italic">No income records found for {selectedYear}.</p>
