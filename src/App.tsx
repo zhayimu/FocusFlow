@@ -39,7 +39,7 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }: { icon: any, label:
   </button>
 );
 
-const LoginScreen = ({ login }: { login: () => void }) => (
+const LoginScreen = ({ login, loggingIn }: { login: () => void, loggingIn: boolean }) => (
   <div className="min-h-screen flex items-center justify-center bg-bento-bg p-6">
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -56,10 +56,18 @@ const LoginScreen = ({ login }: { login: () => void }) => (
       <p className="text-zinc-400 text-sm leading-relaxed">A specialized bento-grid system for the modern imagery artisan. Manage your bookings, production, and financials with precision.</p>
       <button 
         onClick={login}
-        className="w-full flex items-center justify-center gap-3 bg-bento-accent text-white py-4 rounded-2xl hover:bg-bento-accent-hover transition-all duration-500 font-semibold shadow-lg shadow-indigo-500/20"
+        disabled={loggingIn}
+        className={cn(
+          "w-full flex items-center justify-center gap-3 bg-bento-accent text-white py-4 rounded-2xl transition-all duration-500 font-semibold shadow-lg shadow-indigo-500/20",
+          loggingIn ? "opacity-70 cursor-not-allowed" : "hover:bg-bento-accent-hover"
+        )}
       >
-        <LogIn size={20} />
-        Continue with Google
+        {loggingIn ? (
+          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+        ) : (
+          <LogIn size={20} />
+        )}
+        {loggingIn ? "Authenticating..." : "Continue with Google"}
       </button>
     </motion.div>
   </div>
@@ -67,7 +75,7 @@ const LoginScreen = ({ login }: { login: () => void }) => (
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'crm' | 'pipeline' | 'calendar' | 'finance'>('dashboard');
-  const { user, loading, login, logout } = useAuth();
+  const { user, loading, loggingIn, login, logout } = useAuth();
 
   if (loading) {
     return (
@@ -78,7 +86,7 @@ export default function App() {
   }
 
   if (!user) {
-    return <LoginScreen login={login} />;
+    return <LoginScreen login={login} loggingIn={loggingIn} />;
   }
 
   return (
