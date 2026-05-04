@@ -136,7 +136,7 @@ const Dashboard = () => {
               <Plus size={16} />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white tracking-tight">Timeline Logistics</h2>
+              <h2 className="text-lg font-bold text-white tracking-tight">Timeline Calendar</h2>
               <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest">{format(currentMonth, 'MMMM yyyy')}</p>
             </div>
           </div>
@@ -184,7 +184,7 @@ const Dashboard = () => {
         <div className="space-y-6">
           <div className="flex justify-between items-center">
             <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-indigo-400 font-bold block">
-              {selectedDate ? 'Day Logistics' : 'Upcoming Event'}: {format(parseISO(selectedDisplayDate), 'MMM dd')}
+              {selectedDate ? 'Day Calendar' : 'Upcoming Event'}: {format(parseISO(selectedDisplayDate), 'MMM dd')}
             </span>
             {selectedDate && (
               <button 
@@ -252,7 +252,7 @@ const Dashboard = () => {
         
         <div className="mt-6 pt-4 border-t border-zinc-800">
           <button className="w-full py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-300 font-bold text-sm hover:bg-zinc-800 transition-all flex items-center justify-center gap-2">
-            Detailed Daily Logistics <ChevronRight size={14} />
+            Detailed Daily Calendar <ChevronRight size={14} />
           </button>
         </div>
       </div>

@@ -112,7 +112,7 @@ export default function App() {
           />
           <SidebarItem 
             icon={Users} 
-            label="Inquiries" 
+            label="Clients" 
             active={activeTab === 'crm'} 
             onClick={() => setActiveTab('crm')} 
           />
@@ -124,7 +124,7 @@ export default function App() {
           />
           <SidebarItem 
             icon={CalendarIcon} 
-            label="Logistics" 
+            label="Calendar" 
             active={activeTab === 'calendar'} 
             onClick={() => setActiveTab('calendar')} 
           />

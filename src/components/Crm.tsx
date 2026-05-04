@@ -190,7 +190,7 @@ export default function Crm() {
       <header className="flex justify-between items-end">
         <div>
           <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 font-bold">Relationship Architecture</span>
-          <h1 className="text-4xl font-bold tracking-tighter text-white mt-1">Client Inquiries</h1>
+          <h1 className="text-4xl font-bold tracking-tighter text-white mt-1">Clients</h1>
         </div>
         <div className="flex items-center gap-4">
           <AnimatePresence>

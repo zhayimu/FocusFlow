@@ -15,7 +15,7 @@ export default function Calendar() {
   const renderHeader = () => (
     <header className="flex justify-between items-end mb-8">
       <div>
-        <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 font-bold">Temporal Logistics</span>
+        <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 font-bold">Temporal Calendar</span>
         <h1 className="text-4xl font-bold tracking-tighter text-white mt-1">{format(currentMonth, 'MMMM yyyy')}</h1>
       </div>
       <div className="flex gap-2">
