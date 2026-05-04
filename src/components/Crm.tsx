@@ -20,7 +20,6 @@ import { clientService, bookingService } from '../lib/firestoreService';
 interface Client {
   id: string;
   name: string;
-  email: string;
   phone: string;
   remarks: string;
 }
@@ -36,7 +35,6 @@ export default function Crm() {
   // Form State
   const [formData, setFormData] = useState({
     name: '',
-    email: '',
     phone: '',
     eventType: 'Wedding',
     eventDate: format(new Date(), 'yyyy-MM-dd'),
@@ -97,7 +95,6 @@ export default function Crm() {
         // Update existing client
         await clientService.update(editingClient.id, {
           name: formData.name,
-          email: formData.email,
           phone: formData.phone,
           remarks: formData.remarks,
           // Sync metadata to client record for easy recovery in edit modal
@@ -119,7 +116,6 @@ export default function Crm() {
         // 1. Create client
         const clientRef = await clientService.add({
           name: formData.name,
-          email: formData.email,
           phone: formData.phone,
           remarks: formData.remarks,
           eventType: formData.eventType,
@@ -146,7 +142,7 @@ export default function Crm() {
       setIsModalOpen(false);
       setEditingClient(null);
       setFormData({
-        name: '', email: '', phone: '', eventType: 'Wedding',
+        name: '', phone: '', eventType: 'Wedding',
         eventDate: format(new Date(), 'yyyy-MM-dd'),
         price: 0, location: '', remarks: ''
       });
@@ -161,7 +157,6 @@ export default function Crm() {
     setEditingClient(client);
     setFormData({
       name: client.name || '',
-      email: client.email || '',
       phone: client.phone || '',
       remarks: client.remarks || '',
       eventType: client.eventType || 'Wedding',
@@ -175,7 +170,7 @@ export default function Crm() {
   const openAddModal = () => {
     setEditingClient(null);
     setFormData({
-      name: '', email: '', phone: '', eventType: 'Wedding',
+      name: '', phone: '', eventType: 'Wedding',
       eventDate: format(new Date(), 'yyyy-MM-dd'),
       price: 0, location: '', remarks: ''
     });
@@ -262,8 +257,7 @@ export default function Crm() {
                   </td>
                   <td className="px-6 py-5">
                     <div className="space-y-1">
-                      <p className="text-sm text-zinc-300">{client.email}</p>
-                      <p className="text-[10px] text-zinc-500 font-mono italic">{client.phone}</p>
+                      <p className="text-[12px] text-zinc-300 font-mono italic">{client.phone}</p>
                     </div>
                   </td>
                   <td className="px-6 py-5 text-right">
@@ -349,11 +343,7 @@ export default function Crm() {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                       <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 ml-1">Email Connection</label>
-                       <input required type="email" placeholder="john@example.com" className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:border-indigo-500/50 text-zinc-100" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
-                    </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 col-span-2">
                        <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 ml-1">Phone Link</label>
                        <input required type="tel" placeholder="+60 12-345 6789" className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:border-indigo-500/50 text-zinc-100" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
                     </div>
