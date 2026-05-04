@@ -228,10 +228,10 @@ export default function Crm() {
         />
       </div>
 
-      <div className="flex-grow bg-bento-card border border-bento-border rounded-2xl overflow-hidden backdrop-blur-md">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-zinc-900/80 border-b border-bento-border">
+      <div className="flex-grow bg-bento-card border border-bento-border rounded-2xl overflow-auto min-h-0 backdrop-blur-md shadow-inner">
+        <table className="w-full text-left border-collapse relative">
+          <thead className="sticky top-0 z-10 bg-zinc-900 border-b border-bento-border">
+            <tr>
               <th className="px-6 py-4 text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">Principal</th>
               <th className="px-6 py-4 text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">Channel</th>
               <th className="px-6 py-4 text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 text-right">Actions</th>
