@@ -50,7 +50,7 @@ export default function Pipeline() {
           <h1 className="text-3xl md:text-4xl font-bold tracking-tighter text-white mt-1">Workflow Pipeline</h1>
         </div>
         
-        <div className="flex flex-nowrap md:flex-wrap gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
+        <div className="flex flex-nowrap md:flex-wrap gap-2 overflow-x-auto pb-4 md:pb-0 scrollbar-hide">
           <button 
             onClick={() => setFilterStatus('All')}
             className={cn(
@@ -116,7 +116,7 @@ export default function Pipeline() {
                         </div>
                         <div className="flex items-center gap-1.5">
                           <Tag size={13} className="text-zinc-600" />
-                          <span>${Number(project.price).toLocaleString()}</span>
+                          <span>RM {Number(project.price).toLocaleString()}</span>
                         </div>
                         {project.location && (
                           <div className="flex items-center gap-1.5 truncate max-w-full sm:max-w-[200px]">
@@ -128,9 +128,9 @@ export default function Pipeline() {
                     </div>
 
                     {/* Status Switcher */}
-                    <div className="w-full lg:w-auto">
+                    <div className="w-full lg:w-auto relative group/switcher">
                       <div className={cn(
-                        "flex flex-wrap items-center gap-1 bg-zinc-950/50 p-1 md:p-1.5 rounded-xl md:rounded-2xl border border-zinc-800/50 transition-opacity",
+                        "flex items-center gap-1 bg-zinc-950/50 p-1 md:p-1.5 rounded-xl md:rounded-2xl border border-zinc-800/50 transition-opacity overflow-x-auto scrollbar-hide snap-x",
                         filterStatus !== 'All' && "opacity-40"
                       )}>
                         {STAGES.map((stage) => {
@@ -143,17 +143,17 @@ export default function Pipeline() {
                               disabled={!isSwitchable}
                               onClick={() => updateStatus(project.id, stage.id)}
                               className={cn(
-                                "flex-1 sm:flex-none flex items-center justify-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg md:rounded-xl transition-all relative group/btn",
+                                "flex-none flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 md:py-2 rounded-lg md:rounded-xl transition-all relative group/btn snap-center",
                                 isActive 
-                                  ? `${stage.activeVariant} ring-1 ring-inset ${stage.borderVariant}`
+                                  ? `${stage.activeVariant} ring-1 ring-inset ${stage.borderVariant} min-w-[80px] md:min-w-0`
                                   : isSwitchable ? "text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800/50" : "text-zinc-800 cursor-not-allowed"
                               )}
                               title={isSwitchable ? `Set status to ${stage.label}` : "Status changes only available in 'All' view"}
                             >
                               <stage.icon size={14} className="md:w-4 md:h-4 shrink-0" strokeWidth={isActive ? 2.5 : 2} />
                               <span className={cn(
-                                "text-[9px] md:text-[10px] font-bold uppercase tracking-wider",
-                                isActive ? "inline" : "hidden md:group-hover/btn:inline"
+                                "text-[9px] md:text-[10px] font-bold uppercase tracking-wider truncate",
+                                isActive ? "opacity-100" : "opacity-0 hidden lg:group-hover/btn:inline transition-opacity"
                               )}>
                                 {stage.label}
                               </span>

@@ -102,7 +102,7 @@ const Dashboard = () => {
           <Wallet size={20} className="opacity-40" />
         </div>
         <div>
-          <p className="text-2xl md:text-3xl font-bold tracking-tight italic text-white">${totalRevenue.toLocaleString()}</p>
+          <p className="text-2xl md:text-3xl font-bold tracking-tight italic text-white">RM {totalRevenue.toLocaleString()}</p>
           <div className="text-sm text-emerald-400 flex items-center gap-1 mt-1 font-medium">
              Lifetime Earnings
           </div>
@@ -110,7 +110,7 @@ const Dashboard = () => {
         <div className="mt-4 grid grid-cols-2 gap-4 border-t border-zinc-800 pt-4 font-mono">
           <div>
             <p className="text-[10px] text-zinc-500 uppercase">Avg per project</p>
-            <p className="text-sm">${bookings.length > 0 ? (totalRevenue / bookings.length).toFixed(0) : 0}</p>
+            <p className="text-sm">RM {bookings.length > 0 ? (totalRevenue / bookings.length).toFixed(0) : 0}</p>
           </div>
         </div>
       </div>
@@ -272,7 +272,7 @@ const Dashboard = () => {
                 <div key={b.id} className="p-3 bg-zinc-800/40 border border-zinc-700/50 rounded-xl space-y-2 group hover:bg-zinc-800/60 transition-colors">
                   <p className="text-sm font-medium text-zinc-200">{b.clientName}</p>
                   <div className="text-[10px] text-indigo-400 font-semibold uppercase tracking-tight">
-                    {b.eventType} • ${b.price}
+                    {b.eventType} • RM {b.price}
                   </div>
                 </div>
               ))}

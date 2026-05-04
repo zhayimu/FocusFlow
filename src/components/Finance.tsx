@@ -123,7 +123,7 @@ export default function Finance() {
             </div>
           </div>
           <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">Total Income ({selectedYear})</p>
-          <p className="text-3xl md:text-4xl font-bold text-white mt-1 tracking-tight">${yearIncome.toLocaleString()}</p>
+          <p className="text-3xl md:text-4xl font-bold text-white mt-1 tracking-tight">RM {yearIncome.toLocaleString()}</p>
         </div>
 
         <div className="bg-bento-card border border-bento-border rounded-2xl p-6 backdrop-blur-md relative overflow-hidden group">
@@ -137,7 +137,7 @@ export default function Finance() {
             </div>
           </div>
           <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">All-Time Income</p>
-          <p className="text-3xl md:text-4xl font-bold text-white mt-1 tracking-tight">${allTimeIncome.toLocaleString()}</p>
+          <p className="text-3xl md:text-4xl font-bold text-white mt-1 tracking-tight">RM {allTimeIncome.toLocaleString()}</p>
         </div>
 
         <div className="col-span-1 sm:col-span-2 lg:col-span-1 bg-gradient-to-br from-indigo-600/10 to-transparent border border-indigo-500/20 rounded-2xl p-6 backdrop-blur-md flex flex-col justify-center">
@@ -146,7 +146,7 @@ export default function Finance() {
              <span className="text-xs font-bold uppercase tracking-wider">Monthly Projection</span>
            </div>
            <p className="text-sm text-zinc-400 leading-relaxed">
-             Average monthly income for {selectedYear} currently stands at <span className="text-white font-bold">${Math.round(yearIncome / 12).toLocaleString()}</span>. 
+             Average monthly income for {selectedYear} currently stands at <span className="text-white font-bold">RM {Math.round(yearIncome / 12).toLocaleString()}</span>. 
            </p>
         </div>
       </div>
@@ -158,7 +158,7 @@ export default function Finance() {
             <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest">Monthly Distribution</h3>
             <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-500">
               <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
-              REVENUE IN USD
+              REVENUE IN MYR
             </div>
           </div>
           <div className="h-[300px] md:h-[400px] w-full">
@@ -184,7 +184,7 @@ export default function Finance() {
                   fontSize={10} 
                   axisLine={false} 
                   tickLine={false} 
-                  tickFormatter={(value) => `$${value}`} 
+                  tickFormatter={(value) => `RM ${value}`} 
                 />
                 <Tooltip 
                   cursor={{ stroke: '#4f46e5', strokeWidth: 1 }}
@@ -196,7 +196,7 @@ export default function Finance() {
                   }}
                   itemStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#fff' }}
                   labelStyle={{ fontSize: '10px', color: '#71717a', marginBottom: '4px', textTransform: 'uppercase' }}
-                  formatter={(value: any) => [`$${value.toLocaleString()}`, 'Income']}
+                  formatter={(value: any) => [`RM ${value.toLocaleString()}`, 'Income']}
                 />
                 <Area 
                   type="monotone" 
@@ -224,7 +224,7 @@ export default function Finance() {
                      <div className="flex justify-between items-end">
                        <div className="min-w-0 flex-1">
                          <p className="text-xs font-bold text-white uppercase tracking-wider truncate pb-1">{item.label}</p>
-                         <p className="text-[10px] text-zinc-500 font-mono italic">${item.amount.toLocaleString()}</p>
+                         <p className="text-[10px] text-zinc-500 font-mono italic">RM {item.amount.toLocaleString()}</p>
                        </div>
                        <span className="text-xs font-mono text-indigo-400 font-bold ml-2">{item.value}%</span>
                      </div>
@@ -300,7 +300,7 @@ export default function Finance() {
                   </td>
                   <td className="px-8 py-5 text-xs text-zinc-500 font-mono">{book.date}</td>
                   <td className="px-8 py-5 text-right text-white font-black text-sm">
-                    +${Number(book.price).toLocaleString()}
+                    +RM {Number(book.price).toLocaleString()}
                   </td>
                 </tr>
               ))}
@@ -322,7 +322,7 @@ export default function Finance() {
                   <span className="text-[9px] text-zinc-600 font-mono">{book.date}</span>
                 </div>
               </div>
-              <p className="text-emerald-400 font-black text-sm leading-none">+${Number(book.price).toLocaleString()}</p>
+              <p className="text-emerald-400 font-black text-sm leading-none">+RM {Number(book.price).toLocaleString()}</p>
             </div>
           ))}
           {bookings.filter(b => b.date.startsWith(selectedYear.toString())).length === 0 && (

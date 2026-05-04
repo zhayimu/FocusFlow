@@ -324,7 +324,11 @@ export default function Crm() {
                   </div>
                   <div>
                     <p className="font-semibold text-zinc-100">{client.name}</p>
-                    <p className="text-[11px] text-zinc-300 font-mono italic">{client.phone}</p>
+                    <div className="flex items-center gap-2 text-[11px] font-mono italic">
+                      <span className="text-zinc-300">{client.phone}</span>
+                      <span className="text-zinc-600">•</span>
+                      <span className="text-indigo-400 font-bold">RM {client.price || 0}</span>
+                    </div>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -399,8 +403,8 @@ export default function Crm() {
                       <input required type="date" className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:border-indigo-500/50 text-zinc-100 placeholder-zinc-500" value={formData.eventDate} onChange={(e) => setFormData({...formData, eventDate: e.target.value})} />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 ml-1">Budget ($)</label>
-                      <input required type="number" placeholder="1500" className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:border-indigo-500/50 text-zinc-100" value={formData.price} onChange={(e) => setFormData({...formData, price: Number(e.target.value)})} />
+                      <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 ml-1">Budget (RM)</label>
+                      <input required type="number" placeholder="2500" className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:border-indigo-500/50 text-zinc-100" value={formData.price} onChange={(e) => setFormData({...formData, price: Number(e.target.value)})} />
                     </div>
                   </div>
                   <div className="space-y-2">
