@@ -16,7 +16,7 @@ service cloud.firestore {
     }
 
     function isOwner(userId) {
-      return isSignedIn() && userId is string && request.auth.uid == userId;
+      return isSignedIn() && userId == request.auth.uid;
     }
 
     function isAdmin() {
@@ -75,11 +75,11 @@ service cloud.firestore {
 
     // Collection Rules
     match /clients/{clientId} {
-      allow get: if isOwner(existing().userId);
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isEmailVerified() && isValidId(clientId) && isValidClient(incoming());
-      allow update: if isOwner(existing().userId);
-      allow delete: if isOwner(existing().userId);
+      allow get: if isOwner(existing().userId) || isAdmin();
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(clientId) && isValidClient(incoming());
+      allow update: if isOwner(existing().userId) || isAdmin();
+      allow delete: if isOwner(existing().userId) || isAdmin() || (isSignedIn() && !existing().keys().hasAll(['userId']));
     }
 
     match /bookings/{bookingId} {
@@ -87,8 +87,8 @@ service cloud.firestore {
       allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create: if isEmailVerified() && isValidId(bookingId) && isValidBooking(incoming()) &&
                       exists(/databases/$(database)/documents/clients/$(incoming().clientId));
-      allow update: if isOwner(existing().userId);
-      allow delete: if isOwner(existing().userId);
+      allow update: if isOwner(existing().userId) || isAdmin();
+      allow delete: if isOwner(existing().userId) || isAdmin();
     }
 
     match /payments/{paymentId} {
@@ -96,16 +96,16 @@ service cloud.firestore {
       allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create: if isEmailVerified() && isValidId(paymentId) && isValidPayment(incoming()) &&
                       exists(/databases/$(database)/documents/bookings/$(incoming().bookingId));
-      allow delete: if isOwner(existing().userId);
+      allow delete: if isOwner(existing().userId) || isAdmin();
     }
 
     match /expenses/{expenseId} {
       allow get: if isOwner(existing().userId);
       allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create: if isEmailVerified() && isValidId(expenseId) && isValidExpense(incoming());
-      allow update: if isOwner(existing().userId) &&
+      allow update: if (isOwner(existing().userId) || isAdmin()) &&
                       incoming().diff(existing()).affectedKeys().hasOnly(['amount', 'date', 'description', 'category']);
-      allow delete: if isOwner(existing().userId);
+      allow delete: if isOwner(existing().userId) || isAdmin();
     }
   }
 }

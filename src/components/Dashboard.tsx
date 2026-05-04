@@ -96,7 +96,7 @@ const Dashboard = () => {
   return (
     <div className="grid grid-cols-12 gap-6 h-full pb-10">
       {/* Header Stat Cards */}
-      <div className="col-span-4 bg-bento-card border border-bento-border rounded-2xl p-6 flex flex-col justify-between backdrop-blur-md">
+      <div className="col-span-6 bg-bento-card border border-bento-border rounded-2xl p-6 flex flex-col justify-between backdrop-blur-md">
         <div className="flex justify-between items-start text-zinc-500">
           <span className="text-xs font-semibold uppercase tracking-wider">Total Income</span>
           <Wallet size={20} className="opacity-40" />
@@ -115,7 +115,7 @@ const Dashboard = () => {
         </div>
       </div>
       
-      <div className="col-span-4 bg-bento-card border border-bento-border rounded-2xl p-6 flex flex-col justify-between backdrop-blur-md">
+      <div className="col-span-6 bg-bento-card border border-bento-border rounded-2xl p-6 flex flex-col justify-between backdrop-blur-md">
         <div className="flex justify-between items-start text-zinc-500">
           <span className="text-xs font-semibold uppercase tracking-wider">Active Projects</span>
           <Camera size={20} className="opacity-40" />
@@ -124,19 +124,6 @@ const Dashboard = () => {
           <p className="text-3xl font-bold tracking-tight italic text-indigo-400">{bookings.filter(b => b.status !== 'Delivered').length}</p>
           <div className="text-sm text-zinc-500 flex items-center gap-1 mt-1">
              {upcomingEvents.length} active events
-          </div>
-        </div>
-      </div>
-
-      <div className="col-span-4 bg-bento-card border border-bento-border rounded-2xl p-6 flex flex-col justify-between backdrop-blur-md">
-        <div className="flex justify-between items-start text-zinc-500">
-          <span className="text-xs font-semibold uppercase tracking-wider">Success Rate</span>
-          <Users size={20} className="opacity-40" />
-        </div>
-        <div>
-          <p className="text-3xl font-bold tracking-tight italic text-emerald-400">100%</p>
-          <div className="text-sm text-zinc-500 flex items-center gap-1 mt-1">
-             {clientCount} satisfied clients
           </div>
         </div>
       </div>

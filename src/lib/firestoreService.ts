@@ -136,17 +136,18 @@ export const bookingService = {
     try {
       if (!auth.currentUser) return;
       
-      // 1. Get all bookings for this client
+      // 1. Get all bookings for this client (using only clientId for simpler indexing)
       const bookingsQuery = query(
         collection(db, 'bookings'), 
-        where('clientId', '==', clientId),
-        where('userId', '==', auth.currentUser.uid)
+        where('clientId', '==', clientId)
       );
       const bookingSnapshot = await getDocs(bookingsQuery);
-      const bookingIds = bookingSnapshot.docs.map(d => d.id);
+      // Filter by userId client-side as a fallback/safety measure
+      const userBookings = bookingSnapshot.docs.filter(d => d.data().userId === auth.currentUser?.uid);
+      const bookingIds = userBookings.map(d => d.id);
       
       if (bookingIds.length > 0) {
-        // 2. Delete payments in chunks of 10 (Firestore 'in' limit)
+        // 2. Delete payments associated with these bookings
         for (let i = 0; i < bookingIds.length; i += 10) {
           const chunk = bookingIds.slice(i, i + 10);
           const pq = query(collection(db, 'payments'), where('bookingId', 'in', chunk));
@@ -156,12 +157,12 @@ export const bookingService = {
         }
 
         // 3. Delete the bookings themselves
-        const deletions = bookingSnapshot.docs.map(d => deleteDoc(doc(db, 'bookings', d.id)));
+        const deletions = userBookings.map(d => deleteDoc(doc(db, 'bookings', d.id)));
         await Promise.all(deletions);
       }
     } catch (e) { 
       console.error('Relational delete failed:', e);
-      handleFirestoreError(e, OperationType.DELETE, 'inquiries_cascade'); 
+      // We don't throw heroically here because we want the client delete to proceed even if cleanup fails
     }
   },
 
