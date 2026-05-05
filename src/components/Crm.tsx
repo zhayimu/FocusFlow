@@ -11,7 +11,10 @@ import {
   Edit,
   Trash2,
   Camera,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  MessageSquare,
+  Download,
+  ChevronRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -210,102 +213,135 @@ export default function Crm() {
           logging: false,
           backgroundColor: '#ffffff',
           onclone: (clonedDoc) => {
+            const clonedContent = clonedDoc.getElementById('invoice-content');
+            if (clonedContent) {
+              clonedContent.style.width = '800px';
+              clonedContent.style.padding = '40px';
+              clonedContent.style.margin = '0';
+            }
             const styles = clonedDoc.getElementsByTagName('style');
             for (let i = 0; i < styles.length; i++) {
-              // Replace oklch() with a fallback hex color to prevent parser crashes
-              styles[i].innerHTML = styles[i].innerHTML.replace(/oklch\([^)]+\)/g, '#000000');
+              try {
+                styles[i].innerHTML = styles[i].innerHTML.replace(/oklch\([^)]+\)/g, '#000000');
+              } catch (e) {}
             }
           }
         });
         
-        const imgData = canvas.toDataURL('image/png');
+        const imgData = canvas.toDataURL('image/png', 1.0);
         const pdf = new jsPDF({
           orientation: 'portrait',
           unit: 'mm',
           format: 'a4'
         });
         
-        const imgWidth = 210; // A4 width in mm
+        const imgWidth = 210;
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
         
         pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
         
         const fileName = `${invoiceNumber}_${client.name.replace(/\s+/g, '_')}.pdf`;
 
+        const openWhatsAppFallback = () => {
+          const message = `Hi ${client.name}, this is zhayimuuu. Here is your invoice ${invoiceNumber}. Thank you for choosing zhayimuuu!`;
+          const cleanPhone = client.phone.replace(/\D/g, '');
+          const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+          window.open(whatsappUrl, '_blank');
+        };
+
         if (shouldShare && navigator.share) {
           const pdfBlob = pdf.output('blob');
           const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
           
-          try {
-            await navigator.share({
-              files: [file],
-              title: 'Invoice',
-              text: `Hi ${client.name}, here is your invoice ${invoiceNumber}.`
-            });
-          } catch (shareError) {
-            // Fallback to text share if file share fails
-            const message = `Hi ${client.name}, this is zhayimuuu. Here is your invoice ${invoiceNumber}. Thank you for choosing zhayimuuu!`;
-            const cleanPhone = client.phone.replace(/\D/g, '');
-            const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-            window.open(whatsappUrl, '_blank');
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+              await navigator.share({
+                files: [file],
+                title: 'Invoice',
+                text: `Hi ${client.name}, here is your invoice ${invoiceNumber}.`
+              });
+            } catch (shareError: any) {
+              if (shareError.name !== 'AbortError') {
+                openWhatsAppFallback();
+              }
+            }
+          } else {
+            openWhatsAppFallback();
           }
         } else {
           pdf.save(fileName);
         }
       } catch (error) {
         console.error('PDF generation failed:', error);
+        if (shouldShare) {
+          const message = `Hi ${client.name}, this is zhayimuuu. Here is your invoice ${invoiceNumber}. Thank you for choosing zhayimuuu!`;
+          const cleanPhone = client.phone.replace(/\D/g, '');
+          const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+          window.open(whatsappUrl, '_blank');
+        }
       } finally {
         setIsGenerating(false);
       }
     };
 
     return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/90 backdrop-blur-sm print:p-0 print:bg-white print:backdrop-blur-none">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-black/90 backdrop-blur-sm print:p-0 print:bg-white print:backdrop-blur-none">
         <motion.div 
           id="invoice-print-area"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white w-full max-w-2xl text-zinc-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] print:shadow-none print:rounded-none print:max-h-none print:static print:w-full print:max-w-none"
+          initial={{ opacity: 0, scale: 0.95, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="bg-white w-full h-full sm:h-[90vh] sm:max-w-4xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden print:shadow-none print:rounded-none print:max-h-none print:static print:w-full print:max-w-none"
         >
           {/* Controls - Hidden during print */}
-          <div className="bg-zinc-100 px-8 py-4 flex justify-between items-center border-b border-zinc-200 print:hidden shrink-0">
-            <h2 className="font-bold text-zinc-600 uppercase text-xs tracking-widest">Invoice Preview</h2>
-            <div className="flex gap-2 sm:gap-3 flex-wrap">
+          <div className="bg-zinc-100 px-4 sm:px-8 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-center gap-3 border-b border-zinc-200 print:hidden shrink-0">
+            <h2 className="font-bold text-zinc-600 uppercase text-[10px] sm:text-xs tracking-widest hidden sm:block">Invoice Preview</h2>
+            <div className="flex gap-2 w-full sm:w-auto">
               <button 
                 onClick={() => downloadPDF(true)}
                 disabled={isGenerating}
-                className="px-3 sm:px-4 py-2 bg-[#25D366] text-white rounded-xl text-[10px] sm:text-xs font-bold hover:bg-[#20ba59] transition-colors flex items-center gap-2"
+                className="flex-1 sm:flex-none px-3 py-2 bg-[#25D366] text-white rounded-xl text-[10px] sm:text-xs font-bold hover:bg-[#20ba59] transition-colors flex items-center justify-center gap-2"
               >
-                {isGenerating ? '...' : 'Share PDF (WA)'}
+                {isGenerating ? '...' : (
+                  <>
+                    <MessageSquare size={14} />
+                    <span>WhatsApp</span>
+                  </>
+                )}
               </button>
               <button 
                 onClick={() => downloadPDF(false)}
                 disabled={isGenerating}
                 className={cn(
-                  "px-3 sm:px-4 py-2 bg-zinc-900 text-white rounded-xl text-[10px] sm:text-xs font-bold hover:bg-black transition-colors flex items-center gap-2",
+                  "flex-1 sm:flex-none px-3 py-2 bg-zinc-900 text-white rounded-xl text-[10px] sm:text-xs font-bold hover:bg-black transition-colors flex items-center justify-center gap-2",
                   isGenerating && "opacity-50 cursor-not-allowed"
                 )}
               >
-                {isGenerating ? '...' : 'Save PDF'}
+                {isGenerating ? '...' : (
+                  <>
+                    <Download size={14} />
+                    <span>PDF</span>
+                  </>
+                )}
               </button>
               <button 
                 onClick={() => {
                   window.focus();
                   setTimeout(() => window.print(), 100);
                 }}
-                className="px-3 sm:px-4 py-2 bg-indigo-600 text-white rounded-xl text-[10px] sm:text-xs font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/20"
+                className="hidden sm:flex px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/20 items-center gap-2"
               >
-                Print
+                <Camera size={14} />
+                <span>Print</span>
               </button>
-              <button onClick={onClose} className="p-2 hover:bg-zinc-200 rounded-full text-zinc-500 transition-colors">
+              <button onClick={onClose} className="p-2 hover:bg-zinc-200 rounded-full text-zinc-500 transition-colors sm:ml-2">
                 <X size={20} />
               </button>
             </div>
           </div>
 
           {/* Invoice Page Body */}
-          <div className="overflow-y-auto print:overflow-visible print:p-0 bg-white" id="invoice-download-area">
-            <div id="invoice-content" className="p-6 sm:p-12 space-y-8 sm:space-y-12 bg-white" style={{ backgroundColor: '#ffffff', fontFamily: '"Inter", sans-serif' }}>
+          <div className="flex-1 overflow-y-auto bg-zinc-100/50 p-0 sm:p-8 print:p-0 print:bg-white" id="invoice-download-area">
+            <div id="invoice-content" className="mx-auto bg-white p-6 sm:p-12 space-y-8 sm:space-y-12 shadow-sm sm:shadow-lg w-full max-w-[800px] min-h-full sm:min-h-[1100px]" style={{ backgroundColor: '#ffffff', fontFamily: '"Inter", sans-serif' }}>
               {/* Header */}
               <div className="flex flex-col sm:flex-row justify-between items-start gap-6 sm:gap-0" style={{ color: '#18181b' }}>
                 <div className="space-y-3 sm:space-y-4">
