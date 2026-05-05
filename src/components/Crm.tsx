@@ -29,6 +29,8 @@ export default function Crm() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<any | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   const [isSaving, setIsSaving] = useState(false);
 
@@ -182,8 +184,18 @@ export default function Crm() {
     console.log('Generating invoice feature temporarily disabled for compatibility.', client.name);
   };
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
   const filteredClients = clients.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const totalPages = Math.ceil(filteredClients.length / PAGE_SIZE);
+  const paginatedClients = filteredClients.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
   );
 
   return (
@@ -240,14 +252,14 @@ export default function Crm() {
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800">
-            {filteredClients.length === 0 ? (
+            {paginatedClients.length === 0 ? (
               <tr>
                 <td colSpan={3} className="px-6 py-20 text-center text-zinc-700 italic text-lg font-medium">
                   No active inquiries found.
                 </td>
               </tr>
             ) : (
-              filteredClients.map((client) => (
+              paginatedClients.map((client) => (
                 <tr key={client.id} className="hover:bg-zinc-800/30 transition-colors group">
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-4">
@@ -311,12 +323,12 @@ export default function Crm() {
 
       {/* Mobile Card View */}
       <div className="md:hidden flex-grow overflow-y-auto scrollbar-hide space-y-4 pb-4">
-        {filteredClients.length === 0 ? (
+        {paginatedClients.length === 0 ? (
           <div className="py-20 text-center text-zinc-700 italic text-lg font-medium bg-bento-card border border-bento-border rounded-2xl">
             No active inquiries found.
           </div>
         ) : (
-          filteredClients.map((client) => (
+          paginatedClients.map((client) => (
             <div key={client.id} className="bg-bento-card border border-bento-border rounded-2xl p-5 space-y-4 shadow-lg backdrop-blur-md">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -358,6 +370,40 @@ export default function Crm() {
           ))
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between gap-4 px-2 py-4 border-t border-zinc-800 shrink-0">
+          <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
+            Showing {(currentPage - 1) * PAGE_SIZE + 1} - {Math.min(currentPage * PAGE_SIZE, filteredClients.length)} of {filteredClients.length}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className={cn(
+                "px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold transition-all",
+                currentPage === 1 ? "opacity-50 cursor-not-allowed" : "hover:text-white hover:border-zinc-600"
+              )}
+            >
+              Previous
+            </button>
+            <div className="text-xs font-bold text-zinc-400 font-mono">
+              {currentPage} / {totalPages}
+            </div>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className={cn(
+                "px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold transition-all",
+                currentPage === totalPages ? "opacity-50 cursor-not-allowed" : "hover:text-white hover:border-zinc-600"
+              )}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       <AnimatePresence>
         {isModalOpen && (

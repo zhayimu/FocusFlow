@@ -20,6 +20,8 @@ const STAGES: { id: PipelineStatus; icon: any; colorClass: string; activeVariant
 export default function Pipeline() {
   const [projects, setProjects] = useState<any[]>([]);
   const [filterStatus, setFilterStatus] = useState<PipelineStatus | 'All'>('All');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 7;
 
   useEffect(() => {
     return bookingService.subscribe((data) => {
@@ -28,6 +30,10 @@ export default function Pipeline() {
       setProjects(sorted);
     });
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterStatus]);
 
   const updateStatus = async (projectId: string, newStatus: PipelineStatus) => {
     if (filterStatus !== 'All') return; // Restriction applied here as well
@@ -41,6 +47,12 @@ export default function Pipeline() {
   const filteredProjects = filterStatus === 'All' 
     ? projects 
     : projects.filter(p => p.status === filterStatus);
+
+  const totalPages = Math.ceil(filteredProjects.length / PAGE_SIZE);
+  const paginatedProjects = filteredProjects.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
 
   return (
     <div className="space-y-6 md:space-y-8 pb-12">
@@ -81,14 +93,14 @@ export default function Pipeline() {
       </header>
 
       <div className="space-y-4">
-        {filteredProjects.length === 0 ? (
+        {paginatedProjects.length === 0 ? (
           <div className="py-20 text-center bg-zinc-900/30 border border-dashed border-zinc-800 rounded-3xl">
             <p className="text-zinc-600 font-medium">No projects found in this stage.</p>
           </div>
         ) : (
           <div className="grid gap-4">
             <AnimatePresence mode="popLayout">
-              {filteredProjects.map((project) => (
+              {paginatedProjects.map((project) => (
                 <motion.div
                   key={project.id}
                   layout
@@ -182,6 +194,40 @@ export default function Pipeline() {
           </div>
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between gap-4 px-2 py-4 border-t border-zinc-800 shrink-0">
+          <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
+            Showing {(currentPage - 1) * PAGE_SIZE + 1} - {Math.min(currentPage * PAGE_SIZE, filteredProjects.length)} of {filteredProjects.length}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className={cn(
+                "px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold transition-all",
+                currentPage === 1 ? "opacity-50 cursor-not-allowed" : "hover:text-white hover:border-zinc-600"
+              )}
+            >
+              Previous
+            </button>
+            <div className="text-xs font-bold text-zinc-400 font-mono">
+              {currentPage} / {totalPages}
+            </div>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className={cn(
+                "px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold transition-all",
+                currentPage === totalPages ? "opacity-50 cursor-not-allowed" : "hover:text-white hover:border-zinc-600"
+              )}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
