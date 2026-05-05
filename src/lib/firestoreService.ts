@@ -164,7 +164,7 @@ export const bookingService = {
     }
   },
 
-  async updateByClientId(clientId: string, data: any) {
+  async updateByClientId(clientId: string, oldClientName: string | null, data: any) {
     const path = 'bookings';
     try {
       if (!auth.currentUser) return;
@@ -173,7 +173,10 @@ export const bookingService = {
         where('userId', '==', auth.currentUser.uid)
       );
       const snapshot = await getDocs(q);
-      const toUpdate = snapshot.docs.filter(d => d.data().clientId === clientId);
+      const toUpdate = snapshot.docs.filter(d => 
+        d.data().clientId === clientId || 
+        (oldClientName && d.data().clientName === oldClientName)
+      );
       const updates = toUpdate.map(d => updateDoc(doc(db, 'bookings', d.id), data));
       await Promise.all(updates);
     } catch (e) { handleFirestoreError(e, OperationType.UPDATE, path); }

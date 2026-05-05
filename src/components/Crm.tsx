@@ -105,12 +105,13 @@ export default function Crm() {
         });
         
         // SYNC: Update client info in their bookings
-        await bookingService.updateByClientId(editingClient.id, {
+        await bookingService.updateByClientId(editingClient.id, editingClient.name, {
           clientName: formData.name,
           eventType: formData.eventType,
           date: formData.eventDate,
           price: Number(formData.price),
-          location: formData.location
+          location: formData.location,
+          remarks: formData.remarks
         });
       } else {
         // 1. Create client

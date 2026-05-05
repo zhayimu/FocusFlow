@@ -128,9 +128,9 @@ export default function Pipeline() {
                     </div>
 
                     {/* Status Switcher */}
-                    <div className="w-full lg:w-auto relative group/switcher">
+                    <div className="w-full lg:w-auto relative group/switcher mt-2 lg:mt-0">
                       <div className={cn(
-                        "flex items-center gap-1 bg-zinc-950/50 p-1 md:p-1.5 rounded-xl md:rounded-2xl border border-zinc-800/50 transition-opacity overflow-x-auto scrollbar-hide snap-x",
+                        "flex flex-wrap items-center gap-1 bg-zinc-950/50 p-1 md:p-1.5 rounded-xl md:rounded-2xl border border-zinc-800/50 transition-opacity",
                         filterStatus !== 'All' && "opacity-40"
                       )}>
                         {STAGES.map((stage) => {
@@ -143,9 +143,9 @@ export default function Pipeline() {
                               disabled={!isSwitchable}
                               onClick={() => updateStatus(project.id, stage.id)}
                               className={cn(
-                                "flex-none flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 md:py-2 rounded-lg md:rounded-xl transition-all relative group/btn snap-center",
+                                "flex-1 sm:flex-none flex items-center justify-center gap-1.5 md:gap-2 px-2 sm:px-3 lg:px-4 py-2 md:py-2 rounded-lg md:rounded-xl transition-all relative group/btn",
                                 isActive 
-                                  ? `${stage.activeVariant} ring-1 ring-inset ${stage.borderVariant} min-w-[80px] md:min-w-0`
+                                  ? `${stage.activeVariant} ring-1 ring-inset ${stage.borderVariant}`
                                   : isSwitchable ? "text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800/50" : "text-zinc-800 cursor-not-allowed"
                               )}
                               title={isSwitchable ? `Set status to ${stage.label}` : "Status changes only available in 'All' view"}
