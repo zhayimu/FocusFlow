@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, 
   UserPlus, 
@@ -200,9 +200,10 @@ export default function Crm() {
     const invoiceNumber = `INV-${today.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const [isGenerating, setIsGenerating] = useState(false);
+    const invoiceRef = useRef<HTMLDivElement>(null);
 
-    const downloadPDF = async (shouldShare = false) => {
-      const element = document.getElementById('invoice-content');
+    const downloadPDF = async () => {
+      const element = invoiceRef.current;
       if (!element) return;
       
       setIsGenerating(true);
@@ -219,11 +220,19 @@ export default function Crm() {
               clonedContent.style.padding = '40px';
               clonedContent.style.margin = '0';
             }
-            const styles = clonedDoc.getElementsByTagName('style');
-            for (let i = 0; i < styles.length; i++) {
-              try {
-                styles[i].innerHTML = styles[i].innerHTML.replace(/oklch\([^)]+\)/g, '#000000');
-              } catch (e) {}
+            // Remove problematic OKLCH colors for html2canvas
+            const allElements = clonedDoc.getElementsByTagName('*');
+            for (let i = 0; i < allElements.length; i++) {
+              const el = allElements[i] as HTMLElement;
+              if (el.style) {
+                const style = window.getComputedStyle(el);
+                if (style.color.includes('oklch')) el.style.color = '#000000';
+                if (style.backgroundColor.includes('oklch')) {
+                   if (style.backgroundColor.includes('0 0 0')) el.style.backgroundColor = '#000000';
+                   else if (style.backgroundColor.includes('1 0 0')) el.style.backgroundColor = '#ffffff';
+                   else el.style.backgroundColor = '#f4f4f5';
+                }
+              }
             }
           }
         });
@@ -241,9 +250,20 @@ export default function Crm() {
         pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
         
         const fileName = `${invoiceNumber}_${client.name.replace(/\s+/g, '_')}.pdf`;
-        pdf.save(fileName);
+        
+        // Use Blob approach for better compatibility
+        const blob = pdf.output('blob');
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
       } catch (error) {
         console.error('PDF generation failed:', error);
+        alert('Failed to generate PDF. Please try again.');
       } finally {
         setIsGenerating(false);
       }
@@ -261,7 +281,7 @@ export default function Crm() {
           <div className="bg-zinc-100 px-4 sm:px-8 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-center gap-3 border-b border-zinc-200 print:hidden shrink-0">
             <div className="flex gap-2 w-full sm:w-auto ml-auto">
               <button 
-                onClick={() => downloadPDF(false)}
+                onClick={() => downloadPDF()}
                 disabled={isGenerating}
                 className={cn(
                   "flex-1 sm:flex-none px-4 py-2 bg-zinc-900 text-white rounded-xl text-[10px] sm:text-xs font-bold hover:bg-black transition-colors flex items-center justify-center gap-2",
@@ -283,7 +303,7 @@ export default function Crm() {
 
           {/* Invoice Page Body */}
           <div className="flex-1 overflow-y-auto bg-zinc-100/50 p-0 sm:p-8 print:p-0 print:bg-white" id="invoice-download-area">
-            <div id="invoice-content" className="mx-auto bg-white p-6 sm:p-12 space-y-8 sm:space-y-12 shadow-sm sm:shadow-lg w-full max-w-[800px] min-h-full sm:min-h-[1100px]" style={{ backgroundColor: '#ffffff', fontFamily: '"Inter", sans-serif' }}>
+            <div id="invoice-content" ref={invoiceRef} className="mx-auto bg-white p-6 sm:p-12 space-y-8 sm:space-y-12 shadow-sm sm:shadow-lg w-full max-w-[800px] min-h-full sm:min-h-[1100px]" style={{ backgroundColor: '#ffffff', fontFamily: '"Inter", sans-serif' }}>
               {/* Header */}
               <div className="flex flex-col sm:flex-row justify-between items-center gap-6 sm:gap-0" style={{ color: '#18181b' }}>
                 <div className="flex items-center gap-4">

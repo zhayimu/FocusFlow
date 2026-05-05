@@ -72,15 +72,19 @@ function PayslipModal({ onClose, monthlyData }: { onClose: () => void, monthlyDa
   const ded = Number(data.deduction) || 0;
   const netPay = basic + allow + bon - ded;
 
-  const downloadPDF = async (shouldShare = false) => {
-    const element = document.getElementById('payslip-content');
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const downloadPDF = async () => {
+    const element = contentRef.current;
     if (!element) return;
     
     setIsGenerating(true);
     try {
+      // Ensure the element is fully rendered and visible
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
+        allowTaint: true,
         logging: false,
         backgroundColor: '#ffffff',
         onclone: (clonedDoc) => {
@@ -90,11 +94,20 @@ function PayslipModal({ onClose, monthlyData }: { onClose: () => void, monthlyDa
             clonedContent.style.padding = '40px';
             clonedContent.style.margin = '0';
           }
-          const styles = clonedDoc.getElementsByTagName('style');
-          for (let i = 0; i < styles.length; i++) {
-            try {
-              styles[i].innerHTML = styles[i].innerHTML.replace(/oklch\([^)]+\)/g, '#000000');
-            } catch (e) {}
+          // Remove problematic OKLCH colors for html2canvas
+          const allElements = clonedDoc.getElementsByTagName('*');
+          for (let i = 0; i < allElements.length; i++) {
+            const el = allElements[i] as HTMLElement;
+            if (el.style) {
+              // Convert text colors that use OKLCH to standard colors for the PDF
+              const style = window.getComputedStyle(el);
+              if (style.color.includes('oklch')) el.style.color = '#000000';
+              if (style.backgroundColor.includes('oklch')) {
+                 if (style.backgroundColor.includes('0 0 0')) el.style.backgroundColor = '#000000';
+                 else if (style.backgroundColor.includes('1 0 0')) el.style.backgroundColor = '#ffffff';
+                 else el.style.backgroundColor = '#f4f4f5';
+              }
+            }
           }
         }
       });
@@ -111,10 +124,21 @@ function PayslipModal({ onClose, monthlyData }: { onClose: () => void, monthlyDa
       
       pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
       
-      const fileName = `Payslip_${data.name.replace(/\s+/g, '_')}_${data.month}.pdf`;
-      pdf.save(fileName);
+      const fileName = `Payslip_${data.name.replace(/\s+/g, '_') || 'Employee'}_${data.month}.pdf`;
+      
+      // Use Blob approach for better compatibility
+      const blob = pdf.output('blob');
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     } catch (error) {
       console.error('PDF generation failed:', error);
+      alert('Failed to generate PDF. Please try again or use the Print button.');
     } finally {
       setIsGenerating(false);
     }
@@ -213,7 +237,7 @@ function PayslipModal({ onClose, monthlyData }: { onClose: () => void, monthlyDa
 
           <div className="pt-4 space-y-3">
             <button 
-              onClick={() => downloadPDF(false)}
+              onClick={() => downloadPDF()}
               disabled={isGenerating}
               className="w-full py-3 bg-zinc-900 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2"
             >
@@ -233,7 +257,8 @@ function PayslipModal({ onClose, monthlyData }: { onClose: () => void, monthlyDa
         {/* Live Preview */}
         <div className="flex-1 bg-zinc-200/50 p-4 sm:p-12 overflow-y-auto print:p-0 print:bg-white h-full">
           <div 
-            id="payslip-content" 
+            id="payslip-content"
+            ref={contentRef}
             className="mx-auto bg-white p-8 sm:p-16 space-y-12 shadow-sm sm:shadow-2xl w-full max-w-[800px] min-h-full sm:min-h-[1100px]"
             style={{ backgroundColor: '#ffffff', fontFamily: '"Inter", sans-serif' }}
           >
