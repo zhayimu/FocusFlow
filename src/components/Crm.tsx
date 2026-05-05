@@ -10,11 +10,14 @@ import {
   FileText,
   Edit,
   Trash2,
+  Camera,
   Calendar as CalendarIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { clientService, bookingService } from '../lib/firestoreService';
 
 interface Client {
@@ -180,8 +183,197 @@ export default function Crm() {
     setIsModalOpen(true);
   };
 
+  const [invoiceClient, setInvoiceClient] = useState<any | null>(null);
+
   const generateInvoice = (client: any) => {
-    console.log('Generating invoice feature temporarily disabled for compatibility.', client.name);
+    setInvoiceClient(client);
+  };
+
+  const InvoiceModal = ({ client, onClose }: { client: any, onClose: () => void }) => {
+    const today = new Date();
+    const dueDate = new Date();
+    dueDate.setDate(today.getDate() + 14);
+
+    const invoiceNumber = `INV-${today.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const downloadPDF = async () => {
+      const element = document.getElementById('invoice-content');
+      if (!element) return;
+      
+      setIsGenerating(true);
+      try {
+        const canvas = await html2canvas(element, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff'
+        });
+        
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4'
+        });
+        
+        const imgWidth = 210; // A4 width in mm
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+        pdf.save(`${invoiceNumber}_${client.name.replace(/\s+/g, '_')}.pdf`);
+      } catch (error) {
+        console.error('PDF generation failed:', error);
+      } finally {
+        setIsGenerating(false);
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/90 backdrop-blur-sm print:p-0 print:bg-white print:backdrop-blur-none">
+        <motion.div 
+          id="invoice-print-area"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white w-full max-w-2xl text-zinc-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] print:shadow-none print:rounded-none print:max-h-none print:static print:w-full print:max-w-none"
+        >
+          {/* Controls - Hidden during print */}
+          <div className="bg-zinc-100 px-8 py-4 flex justify-between items-center border-b border-zinc-200 print:hidden shrink-0">
+            <h2 className="font-bold text-zinc-600 uppercase text-xs tracking-widest">Invoice Preview</h2>
+            <div className="flex gap-3">
+              <button 
+                onClick={downloadPDF}
+                disabled={isGenerating}
+                className={cn(
+                  "px-4 py-2 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-black transition-colors flex items-center gap-2",
+                  isGenerating && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {isGenerating ? 'Generating...' : 'Download PDF'}
+              </button>
+              <button 
+                onClick={() => {
+                  window.focus();
+                  setTimeout(() => window.print(), 100);
+                }}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/20"
+              >
+                Print
+              </button>
+              <button onClick={onClose} className="p-2 hover:bg-zinc-200 rounded-full text-zinc-500 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+
+          {/* Invoice Page Body */}
+          <div className="overflow-y-auto print:overflow-visible print:p-0 bg-white" id="invoice-download-area">
+            <div id="invoice-content" className="p-12 space-y-12 bg-white">
+              {/* Header */}
+              <div className="flex justify-between items-start">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white">
+                      <Camera size={24} />
+                    </div>
+                    <span className="text-2xl font-black tracking-tighter">ZHAYIMUUU</span>
+                  </div>
+                  <div className="text-[10px] text-zinc-400 font-mono uppercase tracking-widest leading-relaxed">
+                    Imagery Architecture & Production<br />
+                    Professional Photography Services
+                  </div>
+                </div>
+                <div className="text-right">
+                  <h1 className="text-4xl font-black text-zinc-200 tracking-tighter uppercase mb-2">Invoice</h1>
+                  <p className="text-xs font-mono font-bold text-zinc-500">{invoiceNumber}</p>
+                </div>
+              </div>
+
+              {/* Addresses */}
+              <div className="grid grid-cols-2 gap-12 pt-8 border-t border-zinc-100">
+                <div className="space-y-4">
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Bill To</p>
+                  <div>
+                    <p className="font-bold text-lg">{client.name}</p>
+                    <p className="text-sm text-zinc-500 mt-1">{client.phone}</p>
+                    <p className="text-sm text-zinc-500">{client.location || 'Client Location'}</p>
+                  </div>
+                </div>
+                <div className="space-y-4 text-right">
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">Details</p>
+                  <div className="space-y-2">
+                    <div className="flex justify-end gap-4">
+                      <span className="text-xs text-zinc-400">Invoice Date:</span>
+                      <span className="text-xs font-bold font-mono">{format(today, 'dd MMM yyyy')}</span>
+                    </div>
+                    <div className="flex justify-end gap-4">
+                      <span className="text-xs text-zinc-400">Due Date:</span>
+                      <span className="text-xs font-bold font-mono text-indigo-600">{format(today.getTime() + 1209600000, 'dd MMM yyyy')}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Service Table */}
+              <div className="space-y-6 pt-8">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b-2 border-zinc-900 text-[10px] font-bold uppercase tracking-widest">
+                      <th className="py-4">Description</th>
+                      <th className="py-4 text-center">Service Date</th>
+                      <th className="py-4 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100">
+                    <tr className="group">
+                      <td className="py-6">
+                        <p className="font-bold text-zinc-900">Photography Session: {client.eventType}</p>
+                        <p className="text-xs text-zinc-500 mt-1 italic">{client.remarks || 'Standard production and retouching'}</p>
+                      </td>
+                      <td className="py-6 text-center text-xs font-mono text-zinc-500">
+                        {client.eventDate ? format(parseISO(client.eventDate), 'dd MMM yyyy') : 'N/A'}
+                      </td>
+                      <td className="py-6 text-right font-bold text-zinc-900">
+                        RM {Number(client.price).toLocaleString()}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Totals */}
+              <div className="flex justify-end pt-8">
+                <div className="w-64 space-y-4">
+                  <div className="flex justify-between text-zinc-500">
+                    <span className="text-xs uppercase tracking-widest font-bold">Subtotal</span>
+                    <span className="font-mono font-bold">RM {Number(client.price).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-zinc-500">
+                    <span className="text-xs uppercase tracking-widest font-bold">Tax (0%)</span>
+                    <span className="font-mono font-bold">RM 0.00</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-4 border-t-2 border-zinc-900">
+                    <span className="text-sm font-black uppercase tracking-widest">Total Due</span>
+                    <span className="text-xl font-black text-indigo-600">RM {Number(client.price).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="pt-20 text-center space-y-4">
+                <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-[0.2em]">Thank you for your business</p>
+                <div className="flex justify-center gap-6 text-[9px] font-mono text-zinc-400">
+                  <span>zaimzaidi04@gmail.com</span>
+                  <span>•</span>
+                  <span>www.zhayimmuuu.my</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
   };
 
   useEffect(() => {
@@ -284,9 +476,9 @@ export default function Crm() {
                         <Edit size={18} />
                       </button>
                        <button 
-                        onClick={() => window.print()}
+                        onClick={() => generateInvoice(client)}
                         className="p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-500 hover:text-indigo-400 hover:border-indigo-500/50 hover:bg-zinc-800 transition-all active:scale-95"
-                        title="Print Report"
+                        title="Generate Invoice"
                       >
                         <FileText size={18} />
                       </button>
@@ -345,6 +537,13 @@ export default function Crm() {
                   </div>
                 </div>
                 <div className="flex gap-2">
+                  <button 
+                    onClick={() => generateInvoice(client)}
+                    className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-500 active:text-indigo-400"
+                    title="Generate Invoice"
+                  >
+                    <FileText size={18} />
+                  </button>
                   <button 
                     onClick={() => openEditModal(client)}
                     className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-500 active:text-indigo-400"
@@ -521,6 +720,15 @@ export default function Crm() {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {invoiceClient && (
+          <InvoiceModal 
+            client={invoiceClient} 
+            onClose={() => setInvoiceClient(null)} 
+          />
         )}
       </AnimatePresence>
     </div>

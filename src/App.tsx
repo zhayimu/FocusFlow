@@ -50,8 +50,8 @@ const LoginScreen = ({ login, loggingIn }: { login: () => void, loggingIn: boole
         <Camera size={32} strokeWidth={2.5} />
       </div>
       <div>
-        <h1 className="text-4xl font-bold text-white tracking-tighter">FocusFlow</h1>
-        <p className="text-zinc-500 mt-2 font-mono uppercase text-[10px] tracking-[0.2em] italic">Architecture & Management</p>
+        <h1 className="text-4xl font-bold text-white tracking-tighter uppercase">ZHAYIMUUU</h1>
+        <p className="text-zinc-500 mt-2 font-mono uppercase text-[10px] tracking-[0.2em] italic">Imagery Architecture & Production</p>
       </div>
       <p className="text-zinc-400 text-sm leading-relaxed">A specialized bento-grid system for the modern imagery artisan. Manage your bookings, production, and financials with precision.</p>
       <button 
@@ -106,7 +106,7 @@ export default function App() {
             <Camera size={22} strokeWidth={2.5} />
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-tight text-white">FocusFlow</h1>
+            <h1 className="text-lg font-bold tracking-tight text-white uppercase italic">ZHAYIMUUU</h1>
             <p className="text-[10px] text-zinc-500 font-mono tracking-widest leading-none">POS SYSTEM</p>
           </div>
         </div>
@@ -142,7 +142,7 @@ export default function App() {
           <div className="w-8 h-8 bg-bento-accent rounded-lg flex items-center justify-center text-white">
             <Camera size={18} strokeWidth={2.5} />
           </div>
-          <h1 className="text-base font-bold tracking-tight text-white">FocusFlow</h1>
+          <h1 className="text-base font-bold tracking-tight text-white uppercase italic">ZHAYIMUUU</h1>
         </div>
         <button onClick={logout} className="text-zinc-500 hover:text-red-400 transition-colors">
           <LogOut size={18} />
