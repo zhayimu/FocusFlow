@@ -62,13 +62,13 @@ export default function Pipeline() {
           <h1 className="text-3xl md:text-4xl font-bold tracking-tighter text-white mt-1">Workflow Pipeline</h1>
         </div>
         
-        <div className="flex flex-nowrap md:flex-wrap gap-2 overflow-x-auto pb-4 md:pb-0 scrollbar-hide">
+        <div className="flex flex-nowrap md:flex-wrap gap-1.5 md:gap-2 overflow-x-auto pb-4 md:pb-0 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
           <button 
             onClick={() => setFilterStatus('All')}
             className={cn(
               "px-3 md:px-4 py-2 rounded-xl text-[9px] md:text-[10px] font-mono uppercase tracking-widest transition-all border shrink-0",
               filterStatus === 'All' 
-                ? "bg-zinc-100 text-black border-zinc-100 font-bold" 
+                ? "bg-zinc-100 text-black border-transparent font-bold" 
                 : "bg-zinc-900/50 text-zinc-500 border-zinc-800 hover:border-zinc-700"
             )}
           >
@@ -107,32 +107,32 @@ export default function Pipeline() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  className="bg-bento-card border border-bento-border rounded-2xl p-4 md:p-6 backdrop-blur-sm group hover:border-zinc-700 transition-all"
+                  className="bg-bento-card border border-bento-border rounded-2xl p-3.5 md:p-6 backdrop-blur-sm group hover:border-zinc-700 transition-all overflow-hidden"
                 >
                   <div className="flex flex-col lg:flex-row gap-4 md:gap-6 items-start lg:items-center">
                     {/* Project Info */}
-                    <div className="flex-1 min-w-0 space-y-2 w-full">
+                    <div className="flex-1 min-w-0 space-y-2 w-full overflow-hidden">
                       <div className="flex items-center justify-between lg:justify-start gap-3">
-                        <h3 className="text-base md:text-lg font-bold text-white truncate">{project.clientName}</h3>
+                        <h3 className="text-sm md:text-lg font-bold text-white truncate max-w-[150px] sm:max-w-none">{project.clientName}</h3>
                         <span className={cn(
-                          "text-[9px] md:text-[10px] px-2 py-0.5 rounded-md font-mono uppercase tracking-widest whitespace-nowrap text-white",
+                          "text-[8px] md:text-[10px] px-1.5 md:px-2 py-0.5 rounded-md font-mono uppercase tracking-widest whitespace-nowrap text-white",
                           STAGES.find(s => s.id === project.status)?.colorClass || "bg-zinc-800"
                         )}>
                           {project.eventType}
                         </span>
                       </div>
-                      <div className="flex flex-wrap items-center gap-x-4 md:gap-x-6 gap-y-2 text-[11px] md:text-xs text-zinc-500">
-                        <div className="flex items-center gap-1.5">
-                          <Calendar size={13} className="text-zinc-600" />
+                      <div className="flex flex-wrap items-center gap-x-3 md:gap-x-6 gap-y-1.5 text-[10px] md:text-xs text-zinc-500">
+                        <div className="flex items-center gap-1">
+                          <Calendar size={12} className="text-zinc-600" />
                           <span className="font-mono">{format(parseISO(project.date), 'dd MMM yyyy')}</span>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <Tag size={13} className="text-zinc-600" />
+                        <div className="flex items-center gap-1">
+                          <Tag size={12} className="text-zinc-600" />
                           <span>RM {Number(project.price).toLocaleString()}</span>
                         </div>
                         {project.location && (
-                          <div className="flex items-center gap-1.5 truncate max-w-full sm:max-w-[200px]">
-                            <ChevronRight size={13} className="text-zinc-600" />
+                          <div className="flex items-center gap-1 truncate max-w-[120px] sm:max-w-[200px]">
+                            <ChevronRight size={12} className="text-zinc-600" />
                             <span className="truncate">{project.location}</span>
                           </div>
                         )}
@@ -140,9 +140,9 @@ export default function Pipeline() {
                     </div>
 
                     {/* Status Switcher */}
-                    <div className="w-full lg:w-auto relative group/switcher mt-2 lg:mt-0">
+                    <div className="w-full lg:w-auto mt-2 lg:mt-0">
                       <div className={cn(
-                        "flex flex-wrap items-center gap-1 bg-zinc-950/50 p-1 md:p-1.5 rounded-xl md:rounded-2xl border border-zinc-800/50 transition-opacity",
+                        "flex items-center justify-between lg:justify-start gap-1 bg-zinc-950/50 p-1 rounded-xl md:rounded-2xl border border-zinc-800/50 transition-opacity",
                         filterStatus !== 'All' && "opacity-40"
                       )}>
                         {STAGES.map((stage) => {
@@ -155,17 +155,17 @@ export default function Pipeline() {
                               disabled={!isSwitchable}
                               onClick={() => updateStatus(project.id, stage.id)}
                               className={cn(
-                                "flex-1 sm:flex-none flex items-center justify-center gap-1.5 md:gap-2 px-2 sm:px-3 lg:px-4 py-2 md:py-2 rounded-lg md:rounded-xl transition-all relative group/btn",
+                                "flex-1 lg:flex-none flex items-center justify-center gap-1.5 px-2 lg:px-4 py-2 rounded-lg md:rounded-xl transition-all relative group/btn min-w-[36px]",
                                 isActive 
-                                  ? `${stage.activeVariant} ring-1 ring-inset ${stage.borderVariant}`
+                                  ? `${stage.activeVariant} ring-1 ring-inset ${stage.borderVariant} flex-[2] lg:flex-none`
                                   : isSwitchable ? "text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800/50" : "text-zinc-800 cursor-not-allowed"
                               )}
                               title={isSwitchable ? `Set status to ${stage.label}` : "Status changes only available in 'All' view"}
                             >
-                              <stage.icon size={14} className="md:w-4 md:h-4 shrink-0" strokeWidth={isActive ? 2.5 : 2} />
+                              <stage.icon size={13} className="md:w-4 md:h-4 shrink-0" strokeWidth={isActive ? 2.5 : 2} />
                               <span className={cn(
-                                "text-[9px] md:text-[10px] font-bold uppercase tracking-wider truncate",
-                                isActive ? "opacity-100" : "opacity-0 hidden lg:group-hover/btn:inline transition-opacity"
+                                "text-[8px] md:text-[10px] font-bold uppercase tracking-wider truncate",
+                                isActive ? "opacity-100 block" : "hidden lg:group-hover/btn:inline"
                               )}>
                                 {stage.label}
                               </span>
@@ -174,7 +174,7 @@ export default function Pipeline() {
                         })}
                       </div>
                       {filterStatus !== 'All' && (
-                        <p className="text-[9px] text-zinc-600 font-mono uppercase tracking-tighter mt-2 text-center lg:text-right">
+                        <p className="text-[9px] text-zinc-600 font-mono uppercase tracking-tighter mt-1.5 text-center lg:text-right">
                           Switch to 'All' to change status
                         </p>
                       )}

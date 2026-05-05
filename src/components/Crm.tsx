@@ -198,7 +198,7 @@ export default function Crm() {
 
     const [isGenerating, setIsGenerating] = useState(false);
 
-    const downloadPDF = async () => {
+    const downloadPDF = async (shouldShare = false) => {
       const element = document.getElementById('invoice-content');
       if (!element) return;
       
@@ -229,7 +229,29 @@ export default function Crm() {
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
         
         pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-        pdf.save(`${invoiceNumber}_${client.name.replace(/\s+/g, '_')}.pdf`);
+        
+        const fileName = `${invoiceNumber}_${client.name.replace(/\s+/g, '_')}.pdf`;
+
+        if (shouldShare && navigator.share) {
+          const pdfBlob = pdf.output('blob');
+          const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+          
+          try {
+            await navigator.share({
+              files: [file],
+              title: 'Invoice',
+              text: `Hi ${client.name}, here is your invoice ${invoiceNumber}.`
+            });
+          } catch (shareError) {
+            // Fallback to text share if file share fails
+            const message = `Hi ${client.name}, this is zhayimuuu. Here is your invoice ${invoiceNumber}. Thank you for choosing zhayimuuu!`;
+            const cleanPhone = client.phone.replace(/\D/g, '');
+            const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+            window.open(whatsappUrl, '_blank');
+          }
+        } else {
+          pdf.save(fileName);
+        }
       } catch (error) {
         console.error('PDF generation failed:', error);
       } finally {
@@ -248,34 +270,30 @@ export default function Crm() {
           {/* Controls - Hidden during print */}
           <div className="bg-zinc-100 px-8 py-4 flex justify-between items-center border-b border-zinc-200 print:hidden shrink-0">
             <h2 className="font-bold text-zinc-600 uppercase text-xs tracking-widest">Invoice Preview</h2>
-            <div className="flex gap-3">
+            <div className="flex gap-2 sm:gap-3 flex-wrap">
               <button 
-                onClick={() => {
-                  const message = `Hi ${client.name}, this is zhayimuuu. Here is your invoice ${invoiceNumber}. Thank you for choosing zhayimuuu!`;
-                  const cleanPhone = client.phone.replace(/\D/g, '');
-                  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-                  window.open(whatsappUrl, '_blank');
-                }}
-                className="px-4 py-2 bg-[#25D366] text-white rounded-xl text-xs font-bold hover:bg-[#20ba59] transition-colors flex items-center gap-2"
+                onClick={() => downloadPDF(true)}
+                disabled={isGenerating}
+                className="px-3 sm:px-4 py-2 bg-[#25D366] text-white rounded-xl text-[10px] sm:text-xs font-bold hover:bg-[#20ba59] transition-colors flex items-center gap-2"
               >
-                Send WhatsApp
+                {isGenerating ? '...' : 'Share PDF (WA)'}
               </button>
               <button 
-                onClick={downloadPDF}
+                onClick={() => downloadPDF(false)}
                 disabled={isGenerating}
                 className={cn(
-                  "px-4 py-2 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-black transition-colors flex items-center gap-2",
+                  "px-3 sm:px-4 py-2 bg-zinc-900 text-white rounded-xl text-[10px] sm:text-xs font-bold hover:bg-black transition-colors flex items-center gap-2",
                   isGenerating && "opacity-50 cursor-not-allowed"
                 )}
               >
-                {isGenerating ? 'Generating...' : 'Download PDF'}
+                {isGenerating ? '...' : 'Save PDF'}
               </button>
               <button 
                 onClick={() => {
                   window.focus();
                   setTimeout(() => window.print(), 100);
                 }}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/20"
+                className="px-3 sm:px-4 py-2 bg-indigo-600 text-white rounded-xl text-[10px] sm:text-xs font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/20"
               >
                 Print
               </button>
@@ -287,93 +305,95 @@ export default function Crm() {
 
           {/* Invoice Page Body */}
           <div className="overflow-y-auto print:overflow-visible print:p-0 bg-white" id="invoice-download-area">
-            <div id="invoice-content" className="p-12 space-y-12 bg-white" style={{ backgroundColor: '#ffffff', fontFamily: '"Inter", sans-serif' }}>
+            <div id="invoice-content" className="p-6 sm:p-12 space-y-8 sm:space-y-12 bg-white" style={{ backgroundColor: '#ffffff', fontFamily: '"Inter", sans-serif' }}>
               {/* Header */}
-              <div className="flex justify-between items-start" style={{ color: '#18181b' }}>
-                <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-6 sm:gap-0" style={{ color: '#18181b' }}>
+                <div className="space-y-3 sm:space-y-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}>
-                      <Camera size={24} style={{ color: '#ffffff' }} />
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center" style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}>
+                      <Camera size={20} className="sm:w-6 sm:h-6" style={{ color: '#ffffff' }} />
                     </div>
-                    <span className="text-2xl font-black tracking-tighter" style={{ color: '#09090b' }}>ZHAYIMUUU</span>
+                    <span className="text-xl sm:text-2xl font-black tracking-tighter" style={{ color: '#09090b' }}>ZHAYIMUUU</span>
                   </div>
-                  <div className="text-[10px] text-zinc-400 font-mono uppercase tracking-widest leading-relaxed" style={{ color: '#a1a1aa' }}>
+                  <div className="text-[9px] sm:text-[10px] text-zinc-400 font-mono uppercase tracking-widest leading-relaxed" style={{ color: '#a1a1aa' }}>
                     Imagery Architecture & Production<br />
                     Professional Photography Services
                   </div>
                 </div>
-                <div className="text-right">
-                  <h1 className="text-4xl font-black tracking-tighter uppercase mb-2" style={{ color: '#f4f4f5' }}>Invoice</h1>
-                  <p className="text-xs font-mono font-bold" style={{ color: '#71717a' }}>{invoiceNumber}</p>
+                <div className="text-left sm:text-right">
+                  <h1 className="text-3xl sm:text-4xl font-black tracking-tighter uppercase mb-2" style={{ color: '#f4f4f5' }}>Invoice</h1>
+                  <p className="text-[10px] sm:text-xs font-mono font-bold" style={{ color: '#71717a' }}>{invoiceNumber}</p>
                 </div>
               </div>
 
               {/* Addresses */}
-              <div className="grid grid-cols-2 gap-12 pt-8 border-t border-zinc-100" style={{ borderTopColor: '#f4f4f5' }}>
-                <div className="space-y-4">
-                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#a1a1aa' }}>Bill To</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 sm:gap-12 pt-6 sm:pt-8 border-t border-zinc-100" style={{ borderTopColor: '#f4f4f5' }}>
+                <div className="space-y-3 sm:space-y-4">
+                  <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest" style={{ color: '#a1a1aa' }}>Bill To</p>
                   <div>
-                    <p className="font-bold text-lg" style={{ color: '#09090b' }}>{client.name}</p>
-                    <p className="text-sm mt-1" style={{ color: '#71717a' }}>{client.phone}</p>
-                    <p className="text-sm" style={{ color: '#71717a' }}>{client.location || 'Client Location'}</p>
+                    <p className="font-bold text-base sm:text-lg" style={{ color: '#09090b' }}>{client.name}</p>
+                    <p className="text-xs sm:text-sm mt-1" style={{ color: '#71717a' }}>{client.phone}</p>
+                    <p className="text-xs sm:text-sm" style={{ color: '#71717a' }}>{client.location || 'Client Location'}</p>
                   </div>
                 </div>
-                <div className="space-y-4 text-right">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-right" style={{ color: '#a1a1aa' }}>Details</p>
+                <div className="space-y-3 sm:space-y-4 text-left sm:text-right">
+                  <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest" style={{ color: '#a1a1aa' }}>Details</p>
                   <div className="space-y-2">
-                    <div className="flex justify-end gap-4">
-                      <span className="text-xs" style={{ color: '#a1a1aa' }}>Invoice Date:</span>
-                      <span className="text-xs font-bold font-mono" style={{ color: '#18181b' }}>{format(today, 'dd MMM yyyy')}</span>
+                    <div className="flex justify-start sm:justify-end gap-4">
+                      <span className="text-[10px] sm:text-xs" style={{ color: '#a1a1aa' }}>Invoice Date:</span>
+                      <span className="text-[10px] sm:text-xs font-bold font-mono" style={{ color: '#18181b' }}>{format(today, 'dd MMM yyyy')}</span>
                     </div>
-                    <div className="flex justify-end gap-4">
-                      <span className="text-xs" style={{ color: '#a1a1aa' }}>Due Date:</span>
-                      <span className="text-xs font-bold font-mono" style={{ color: '#4f46e5' }}>{format(today.getTime() + 1209600000, 'dd MMM yyyy')}</span>
+                    <div className="flex justify-start sm:justify-end gap-4">
+                      <span className="text-[10px] sm:text-xs" style={{ color: '#a1a1aa' }}>Due Date:</span>
+                      <span className="text-[10px] sm:text-xs font-bold font-mono" style={{ color: '#4f46e5' }}>{format(today.getTime() + 1209600000, 'dd MMM yyyy')}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Service Table */}
-              <div className="space-y-6 pt-8">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b-2 border-zinc-900 text-[10px] font-bold uppercase tracking-widest" style={{ borderBottomColor: '#09090b' }}>
-                      <th className="py-4">Description</th>
-                      <th className="py-4 text-center">Service Date</th>
-                      <th className="py-4 text-right">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-100" style={{ borderColor: '#f4f4f5' }}>
-                    <tr className="group">
-                      <td className="py-6">
-                        <p className="font-bold" style={{ color: '#09090b' }}>Photography Session: {client.eventType}</p>
-                        <p className="text-xs mt-1 italic" style={{ color: '#71717a' }}>{client.remarks || 'Standard production and retouching'}</p>
-                      </td>
-                      <td className="py-6 text-center text-xs font-mono" style={{ color: '#71717a' }}>
-                        {client.eventDate ? format(parseISO(client.eventDate), 'dd MMM yyyy') : 'N/A'}
-                      </td>
-                      <td className="py-6 text-right font-bold" style={{ color: '#09090b' }}>
-                        RM {Number(client.price).toLocaleString()}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div className="space-y-6 pt-6 sm:pt-8">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left min-w-[400px] sm:min-w-0">
+                    <thead>
+                      <tr className="border-b-2 border-zinc-900 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest" style={{ borderBottomColor: '#09090b' }}>
+                        <th className="py-4">Description</th>
+                        <th className="py-4 text-center">Service Date</th>
+                        <th className="py-4 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100" style={{ borderColor: '#f4f4f5' }}>
+                      <tr className="group">
+                        <td className="py-4 sm:py-6">
+                          <p className="font-bold text-sm sm:text-base" style={{ color: '#09090b' }}>Photography Session: {client.eventType}</p>
+                          <p className="text-[10px] sm:text-xs mt-1 italic" style={{ color: '#71717a' }}>{client.remarks || 'Standard production and retouching'}</p>
+                        </td>
+                        <td className="py-4 sm:py-6 text-center text-xs font-mono" style={{ color: '#71717a' }}>
+                          {client.eventDate ? format(parseISO(client.eventDate), 'dd MMM yyyy') : 'N/A'}
+                        </td>
+                        <td className="py-4 sm:py-6 text-right font-bold text-sm sm:text-base" style={{ color: '#09090b' }}>
+                          RM {Number(client.price).toLocaleString()}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {/* Totals */}
-              <div className="flex justify-end pt-8">
-                <div className="w-64 space-y-4">
+              <div className="flex justify-end pt-6 sm:pt-8">
+                <div className="w-full sm:w-64 space-y-3 sm:space-y-4">
                   <div className="flex justify-between" style={{ color: '#71717a' }}>
-                    <span className="text-xs uppercase tracking-widest font-bold">Subtotal</span>
-                    <span className="font-mono font-bold">RM {Number(client.price).toLocaleString()}</span>
+                    <span className="text-[10px] sm:text-xs uppercase tracking-widest font-bold">Subtotal</span>
+                    <span className="text-[10px] sm:text-xs font-mono font-bold">RM {Number(client.price).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between" style={{ color: '#71717a' }}>
-                    <span className="text-xs uppercase tracking-widest font-bold">Tax (0%)</span>
-                    <span className="font-mono font-bold">RM 0.00</span>
+                    <span className="text-[10px] sm:text-xs uppercase tracking-widest font-bold">Tax (0%)</span>
+                    <span className="text-[10px] sm:text-xs font-mono font-bold">RM 0.00</span>
                   </div>
-                  <div className="flex justify-between items-center pt-4 border-t-2" style={{ borderTopColor: '#09090b' }}>
-                    <span className="text-sm font-black uppercase tracking-widest" style={{ color: '#09090b' }}>Total Due</span>
-                    <span className="text-xl font-black" style={{ color: '#4f46e5' }}>RM {Number(client.price).toLocaleString()}</span>
+                  <div className="flex justify-between items-center pt-3 sm:pt-4 border-t-2" style={{ borderTopColor: '#09090b' }}>
+                    <span className="text-xs sm:text-sm font-black uppercase tracking-widest" style={{ color: '#09090b' }}>Total Due</span>
+                    <span className="text-lg sm:text-xl font-black" style={{ color: '#4f46e5' }}>RM {Number(client.price).toLocaleString()}</span>
                   </div>
                 </div>
               </div>
