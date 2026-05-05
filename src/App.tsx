@@ -51,7 +51,6 @@ const LoginScreen = ({ login, loggingIn }: { login: () => void, loggingIn: boole
       </div>
       <div>
         <h1 className="text-4xl font-bold text-white tracking-tighter uppercase">ZHAYIMUUU</h1>
-        <p className="text-zinc-500 mt-2 font-mono uppercase text-[10px] tracking-[0.2em] italic">Imagery Architecture & Production</p>
       </div>
       <p className="text-zinc-400 text-sm leading-relaxed">A specialized bento-grid system for the modern imagery artisan. Manage your bookings, production, and financials with precision.</p>
       <button 

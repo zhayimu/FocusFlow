@@ -241,44 +241,9 @@ export default function Crm() {
         pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
         
         const fileName = `${invoiceNumber}_${client.name.replace(/\s+/g, '_')}.pdf`;
-
-        const openWhatsAppFallback = () => {
-          const message = `Hi ${client.name}, this is zhayimuuu. Here is your invoice ${invoiceNumber}. Thank you for choosing zhayimuuu!`;
-          const cleanPhone = client.phone.replace(/\D/g, '');
-          const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-          window.open(whatsappUrl, '_blank');
-        };
-
-        if (shouldShare && navigator.share) {
-          const pdfBlob = pdf.output('blob');
-          const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
-          
-          if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            try {
-              await navigator.share({
-                files: [file],
-                title: 'Invoice',
-                text: `Hi ${client.name}, here is your invoice ${invoiceNumber}.`
-              });
-            } catch (shareError: any) {
-              if (shareError.name !== 'AbortError') {
-                openWhatsAppFallback();
-              }
-            }
-          } else {
-            openWhatsAppFallback();
-          }
-        } else {
-          pdf.save(fileName);
-        }
+        pdf.save(fileName);
       } catch (error) {
         console.error('PDF generation failed:', error);
-        if (shouldShare) {
-          const message = `Hi ${client.name}, this is zhayimuuu. Here is your invoice ${invoiceNumber}. Thank you for choosing zhayimuuu!`;
-          const cleanPhone = client.phone.replace(/\D/g, '');
-          const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-          window.open(whatsappUrl, '_blank');
-        }
       } finally {
         setIsGenerating(false);
       }
@@ -294,25 +259,12 @@ export default function Crm() {
         >
           {/* Controls - Hidden during print */}
           <div className="bg-zinc-100 px-4 sm:px-8 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-center gap-3 border-b border-zinc-200 print:hidden shrink-0">
-            <h2 className="font-bold text-zinc-600 uppercase text-[10px] sm:text-xs tracking-widest hidden sm:block">Invoice Preview</h2>
-            <div className="flex gap-2 w-full sm:w-auto">
-              <button 
-                onClick={() => downloadPDF(true)}
-                disabled={isGenerating}
-                className="flex-1 sm:flex-none px-3 py-2 bg-[#25D366] text-white rounded-xl text-[10px] sm:text-xs font-bold hover:bg-[#20ba59] transition-colors flex items-center justify-center gap-2"
-              >
-                {isGenerating ? '...' : (
-                  <>
-                    <MessageSquare size={14} />
-                    <span>WhatsApp</span>
-                  </>
-                )}
-              </button>
+            <div className="flex gap-2 w-full sm:w-auto ml-auto">
               <button 
                 onClick={() => downloadPDF(false)}
                 disabled={isGenerating}
                 className={cn(
-                  "flex-1 sm:flex-none px-3 py-2 bg-zinc-900 text-white rounded-xl text-[10px] sm:text-xs font-bold hover:bg-black transition-colors flex items-center justify-center gap-2",
+                  "flex-1 sm:flex-none px-4 py-2 bg-zinc-900 text-white rounded-xl text-[10px] sm:text-xs font-bold hover:bg-black transition-colors flex items-center justify-center gap-2",
                   isGenerating && "opacity-50 cursor-not-allowed"
                 )}
               >
@@ -322,16 +274,6 @@ export default function Crm() {
                     <span>PDF</span>
                   </>
                 )}
-              </button>
-              <button 
-                onClick={() => {
-                  window.focus();
-                  setTimeout(() => window.print(), 100);
-                }}
-                className="hidden sm:flex px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/20 items-center gap-2"
-              >
-                <Camera size={14} />
-                <span>Print</span>
               </button>
               <button onClick={onClose} className="p-2 hover:bg-zinc-200 rounded-full text-zinc-500 transition-colors sm:ml-2">
                 <X size={20} />
@@ -343,21 +285,14 @@ export default function Crm() {
           <div className="flex-1 overflow-y-auto bg-zinc-100/50 p-0 sm:p-8 print:p-0 print:bg-white" id="invoice-download-area">
             <div id="invoice-content" className="mx-auto bg-white p-6 sm:p-12 space-y-8 sm:space-y-12 shadow-sm sm:shadow-lg w-full max-w-[800px] min-h-full sm:min-h-[1100px]" style={{ backgroundColor: '#ffffff', fontFamily: '"Inter", sans-serif' }}>
               {/* Header */}
-              <div className="flex flex-col sm:flex-row justify-between items-start gap-6 sm:gap-0" style={{ color: '#18181b' }}>
-                <div className="space-y-3 sm:space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center" style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}>
-                      <Camera size={20} className="sm:w-6 sm:h-6" style={{ color: '#ffffff' }} />
-                    </div>
-                    <span className="text-xl sm:text-2xl font-black tracking-tighter" style={{ color: '#09090b' }}>ZHAYIMUUU</span>
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-6 sm:gap-0" style={{ color: '#18181b' }}>
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}>
+                    <Camera size={24} className="sm:w-7 sm:h-7" style={{ color: '#ffffff' }} />
                   </div>
-                  <div className="text-[9px] sm:text-[10px] text-zinc-400 font-mono uppercase tracking-widest leading-relaxed" style={{ color: '#a1a1aa' }}>
-                    Imagery Architecture & Production<br />
-                    Professional Photography Services
-                  </div>
+                  <span className="text-2xl sm:text-3xl font-black tracking-tighter" style={{ color: '#09090b' }}>ZHAYIMUUU</span>
                 </div>
                 <div className="text-left sm:text-right">
-                  <h1 className="text-3xl sm:text-4xl font-black tracking-tighter uppercase mb-2" style={{ color: '#f4f4f5' }}>Invoice</h1>
                   <p className="text-[10px] sm:text-xs font-mono font-bold" style={{ color: '#71717a' }}>{invoiceNumber}</p>
                 </div>
               </div>

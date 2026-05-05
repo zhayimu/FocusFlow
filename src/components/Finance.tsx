@@ -112,27 +112,7 @@ function PayslipModal({ onClose, monthlyData }: { onClose: () => void, monthlyDa
       pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
       
       const fileName = `Payslip_${data.name.replace(/\s+/g, '_')}_${data.month}.pdf`;
-
-      if (shouldShare && navigator.share) {
-        const pdfBlob = pdf.output('blob');
-        const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
-        
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({
-              files: [file],
-              title: 'Payslip',
-              text: `Hi ${data.name}, here is your payslip for ${data.month} ${data.year}.`
-            });
-          } catch (shareError: any) {
-            if (shareError.name !== 'AbortError') pdf.save(fileName);
-          }
-        } else {
-          pdf.save(fileName);
-        }
-      } else {
-        pdf.save(fileName);
-      }
+      pdf.save(fileName);
     } catch (error) {
       console.error('PDF generation failed:', error);
     } finally {
@@ -232,14 +212,6 @@ function PayslipModal({ onClose, monthlyData }: { onClose: () => void, monthlyDa
           </div>
 
           <div className="pt-4 space-y-3">
-             <button 
-              onClick={() => downloadPDF(true)}
-              disabled={isGenerating}
-              className="w-full py-3 bg-[#25D366] text-white rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2"
-            >
-              <MessageSquare size={14} />
-              Share on WhatsApp
-            </button>
             <button 
               onClick={() => downloadPDF(false)}
               disabled={isGenerating}
@@ -266,21 +238,14 @@ function PayslipModal({ onClose, monthlyData }: { onClose: () => void, monthlyDa
             style={{ backgroundColor: '#ffffff', fontFamily: '"Inter", sans-serif' }}
           >
             {/* Header */}
-            <div className="flex justify-between items-start">
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}>
-                    <Camera size={24} style={{ color: '#ffffff' }} />
-                  </div>
-                  <span className="text-2xl font-black tracking-tighter" style={{ color: '#09090b' }}>ZHAYIMUUU</span>
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}>
+                  <Camera size={28} style={{ color: '#ffffff' }} />
                 </div>
-                <div className="text-[10px] text-zinc-400 font-mono uppercase tracking-widest leading-relaxed">
-                  Imagery Architecture & Production<br />
-                  Professional Photography Services
-                </div>
+                <span className="text-3xl font-black tracking-tighter" style={{ color: '#09090b' }}>ZHAYIMUUU</span>
               </div>
               <div className="text-right">
-                <h1 className="text-4xl font-black tracking-tighter uppercase mb-2" style={{ color: '#f4f4f5' }}>PAYSLIP</h1>
                 <p className="text-xs font-mono font-bold" style={{ color: '#71717a' }}>{payslipId}</p>
               </div>
             </div>
