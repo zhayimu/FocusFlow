@@ -95,17 +95,29 @@ function PayslipModal({ onClose, monthlyData }: { onClose: () => void, monthlyDa
             clonedContent.style.margin = '0';
           }
           // Remove problematic OKLCH colors for html2canvas
+          const styleTags = clonedDoc.getElementsByTagName('style');
+          for (let i = 0; i < styleTags.length; i++) {
+            try {
+              styleTags[i].innerHTML = styleTags[i].innerHTML.replace(/oklch\([^)]+\)/g, '#71717a');
+            } catch (e) {
+              console.warn('Failed to patch style tag:', e);
+            }
+          }
+
           const allElements = clonedDoc.getElementsByTagName('*');
           for (let i = 0; i < allElements.length; i++) {
             const el = allElements[i] as HTMLElement;
             if (el.style) {
-              // Convert text colors that use OKLCH to standard colors for the PDF
-              const style = window.getComputedStyle(el);
-              if (style.color.includes('oklch')) el.style.color = '#000000';
-              if (style.backgroundColor.includes('oklch')) {
-                 if (style.backgroundColor.includes('0 0 0')) el.style.backgroundColor = '#000000';
-                 else if (style.backgroundColor.includes('1 0 0')) el.style.backgroundColor = '#ffffff';
-                 else el.style.backgroundColor = '#f4f4f5';
+              // Forced manual check for common tailwind colors that use oklch
+              const computedStyle = window.getComputedStyle(el);
+              if (computedStyle.color.includes('oklch')) {
+                el.style.setProperty('color', '#18181b', 'important');
+              }
+              if (computedStyle.backgroundColor.includes('oklch')) {
+                el.style.setProperty('background-color', '#ffffff', 'important');
+              }
+              if (computedStyle.borderColor.includes('oklch')) {
+                el.style.setProperty('border-color', '#e4e4e7', 'important');
               }
             }
           }
