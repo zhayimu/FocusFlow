@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Camera, Users, Wallet, ChevronRight, ChevronLeft, Trash2 } from 'lucide-react';
 import { bookingService, clientService } from '../lib/firestoreService';
 import { 
@@ -15,6 +15,32 @@ import {
   subMonths
 } from 'date-fns';
 import { cn } from '../lib/utils';
+import { motion, animate } from 'motion/react';
+
+function NumberTicker({ value, prefix = "RM " }: { value: number, prefix?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const prevValue = useRef(value);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    const controls = animate(prevValue.current, value, {
+      duration: 2,
+      ease: [0.16, 1, 0.3, 1], // Custom cubic-bezier for smooth finish
+      onUpdate(currentValue) {
+        node.textContent = `${prefix}${Math.round(currentValue).toLocaleString()}`;
+      },
+      onComplete() {
+        prevValue.current = value;
+      }
+    });
+
+    return () => controls.stop();
+  }, [value, prefix]);
+
+  return <span ref={ref}>{prefix}{value.toLocaleString()}</span>;
+}
 
 const Dashboard = () => {
   const [bookings, setBookings] = useState<any[]>([]);
@@ -102,7 +128,9 @@ const Dashboard = () => {
           <Wallet size={20} className="opacity-40" />
         </div>
         <div>
-          <p className="text-2xl md:text-3xl font-bold tracking-tight italic text-white">RM {totalRevenue.toLocaleString()}</p>
+          <p className="text-2xl md:text-3xl font-bold tracking-tight italic text-white flex items-center">
+            <NumberTicker value={totalRevenue} />
+          </p>
           <div className="text-sm text-emerald-400 flex items-center gap-1 mt-1 font-medium">
              Lifetime Earnings
           </div>
