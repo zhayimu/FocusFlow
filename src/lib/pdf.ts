@@ -28,6 +28,8 @@ export async function downloadElementAsPdf(element: HTMLElement, cloneId: string
         cloned.style.width = '800px';
         cloned.style.padding = '48px';
         cloned.style.margin = '0';
+        cloned.style.minHeight = '1131px'; // 800px wide × A4 ratio (297/210)
+        cloned.style.boxShadow = 'none';
       }
       for (const tag of Array.from(clonedDoc.getElementsByTagName('style'))) {
         try {
@@ -45,8 +47,16 @@ export async function downloadElementAsPdf(element: HTMLElement, cloneId: string
   });
 
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const imgWidth = 210;
-  pdf.addImage(canvas.toDataURL('image/png', 1.0), 'PNG', 0, 0, imgWidth, (canvas.height * imgWidth) / canvas.width);
+  const pageW = 210;
+  const pageH = 297;
+  const imgH = (canvas.height * pageW) / canvas.width;
+  // JPEG keeps a full-page A4 around a few hundred KB (PNG was ~10 MB).
+  const img = canvas.toDataURL('image/jpeg', 0.92);
+  // One A4 page per 297mm slice; long invoices continue onto extra pages.
+  for (let offset = 0, page = 0; offset < imgH - 1; offset += pageH, page++) {
+    if (page > 0) pdf.addPage();
+    pdf.addImage(img, 'JPEG', 0, -offset, pageW, imgH, undefined, 'FAST');
+  }
 
   const url = URL.createObjectURL(pdf.output('blob'));
   const link = document.createElement('a');

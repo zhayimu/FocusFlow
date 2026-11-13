@@ -21,6 +21,7 @@ import {
   Panel, PanelTitle, IconButton, Button, StatusPill, STAGES, NumberTicker, EmptyState, ConfirmDialog,
   useToast, describeError, rm,
 } from './ui';
+import InvoicesPanel from './InvoicesPanel';
 
 type Tab = 'dashboard' | 'crm' | 'pipeline' | 'calendar' | 'finance';
 
@@ -156,6 +157,8 @@ export default function Dashboard({ onNavigate }: { onNavigate?: (tab: Tab) => v
           ))}
         </Panel>
       </div>
+
+      <InvoicesPanel />
 
       {/* Calendar + agenda */}
       <div className="grid grid-cols-12 gap-4 md:gap-6">
