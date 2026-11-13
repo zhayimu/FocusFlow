@@ -1,25 +1,80 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
+/*
+  Darkroom editorial theme.
+  One warm grey family (ink), one paper white, one accent (safelight amber).
+  Sage and rust are reserved for "paid/delivered" and "destructive".
+*/
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Space Grotesk", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
-  
-  --color-bento-bg: #0A0A0B;
-  --color-bento-card: rgba(24, 24, 27, 0.5); /* zinc-900/50 */
-  --color-bento-border: #27272a; /* zinc-800 */
-  --color-bento-accent: #4f46e5; /* indigo-600 */
-  --color-bento-accent-hover: #6366f1; /* indigo-500 */
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+
+  --color-ink-950: #12100e; /* page */
+  --color-ink-900: #191613; /* panel */
+  --color-ink-850: #201c18; /* raised / inputs */
+  --color-ink-800: #2a251f; /* hairlines */
+  --color-ink-700: #3a332b; /* strong lines, hover */
+  --color-ink-500: #7a7064; /* quiet text */
+  --color-ink-400: #968b7c; /* secondary text */
+  --color-ink-300: #b9ae9e; /* body on dark */
+  --color-paper: #ede6da;   /* primary text */
+
+  --color-safelight: #e0a458;
+  --color-safelight-strong: #ebb574;
+  --color-safelight-ink: #1c130a;
+
+  --color-sage: #9db08a;
+  --color-rust: #d4704f;
+
+  --radius-card: 1.125rem;
+  --radius-control: 0.625rem;
+
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @layer base {
-  body {
-    @apply bg-bento-bg text-zinc-100 font-sans antialiased;
+  html {
+    color-scheme: dark;
+    scroll-behavior: smooth;
   }
-  
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-display font-bold tracking-tight;
+
+  body {
+    @apply bg-ink-950 text-paper font-sans antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  h1, h2, h3, h4 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-safelight) 35%, transparent);
+    color: var(--color-paper);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-safelight);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.75) sepia(0.3);
+    cursor: pointer;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
@@ -28,10 +83,11 @@
     body * {
       visibility: hidden;
     }
-    #invoice-print-area, #invoice-print-area * {
+    #invoice-print-area, #invoice-print-area *,
+    #payslip-content, #payslip-content * {
       visibility: visible;
     }
-    #invoice-print-area {
+    #invoice-print-area, #payslip-content {
       position: absolute;
       left: 0;
       top: 0;
@@ -53,3 +109,28 @@
   }
 }
 
+/* Small uppercase label used sparingly for metadata, not for every heading. */
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Film grain over everything; never intercepts input. */
+@utility grain {
+  &::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    pointer-events: none;
+    opacity: 0.06;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 0.95 0 0 0 0 0.88 0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+}

@@ -1,47 +1,26 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Wallet, TrendingUp, Calendar, ChevronLeft, ChevronRight, DollarSign, FileText, Download, X, Printer, Camera, Share2, MessageSquare } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { FileText, Download, X, Printer, Receipt } from 'lucide-react';
 import { bookingService } from '../lib/firestoreService';
 import { format, parseISO, startOfYear, endOfYear, eachMonthOfInterval, isSameMonth } from 'date-fns';
 import { cn } from '../lib/utils';
-import { motion, animate, AnimatePresence } from 'motion/react';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import { 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  AreaChart,
-  Area
-} from 'recharts';
+import { motion, AnimatePresence } from 'motion/react';
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { downloadElementAsPdf, DOC } from '../lib/pdf';
+import {
+  PageHeader, Panel, PanelTitle, Button, IconButton, Segmented, Field, inputClass, NumberTicker, EmptyState,
+  useToast, rm,
+} from './ui';
 
-function NumberTicker({ value, prefix = "RM " }: { value: number, prefix?: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const prevValue = useRef(value);
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
+const yearOf = (d: unknown) => (typeof d === 'string' ? Number(d.slice(0, 4)) : NaN);
 
-    const controls = animate(prevValue.current, value, {
-      duration: 2,
-      ease: [0.16, 1, 0.3, 1], // Custom cubic-bezier for smooth finish
-      onUpdate(currentValue) {
-        node.textContent = `${prefix}${Math.round(currentValue).toLocaleString()}`;
-      },
-      onComplete() {
-        prevValue.current = value;
-      }
-    });
+/* ------------------------------------------------------------------ */
+/* Payslip                                                             */
+/* ------------------------------------------------------------------ */
 
-    return () => controls.stop();
-  }, [value, prefix]);
-
-  return <span ref={ref}>{prefix}{value.toLocaleString()}</span>;
-}
-
-function PayslipModal({ onClose, monthlyData }: { onClose: () => void, monthlyData: any[] }) {
+function PayslipModal({ onClose, monthlyData }: { onClose: () => void; monthlyData: { name: string; income: number }[] }) {
+  const toast = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [data, setData] = useState({
     name: '',
@@ -53,309 +32,177 @@ function PayslipModal({ onClose, monthlyData }: { onClose: () => void, monthlyDa
     deduction: '0',
     bonus: '0',
   });
+  const set = (patch: Partial<typeof data>) => setData(prev => ({ ...prev, ...patch }));
 
-  // Sync basic salary with monthly income data when month changes
+  // Default the basic salary to that month's income.
   useEffect(() => {
-    const selectedMonthShort = data.month.substring(0, 3);
-    const monthRecord = monthlyData.find(m => m.name === selectedMonthShort);
-    if (monthRecord) {
-      setData(prev => ({ ...prev, basicSalary: monthRecord.income.toString() }));
-    }
+    const record = monthlyData.find(m => m.name === data.month.substring(0, 3));
+    if (record) setData(prev => ({ ...prev, basicSalary: record.income.toString() }));
   }, [data.month, monthlyData]);
 
-  const today = new Date();
-  const payslipId = `PS-${format(today, 'yyyyMM')}-${Math.floor(1000 + Math.random() * 9000)}`;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
+  const payslipId = useMemo(() => `PS-${format(new Date(), 'yyyyMM')}-${Math.floor(1000 + Math.random() * 9000)}`, []);
   const basic = Number(data.basicSalary) || 0;
   const allow = Number(data.allowance) || 0;
   const bon = Number(data.bonus) || 0;
   const ded = Number(data.deduction) || 0;
   const netPay = basic + allow + bon - ded;
-
   const contentRef = useRef<HTMLDivElement>(null);
 
   const downloadPDF = async () => {
-    const element = contentRef.current;
-    if (!element) return;
-    
+    if (!contentRef.current) return;
     setIsGenerating(true);
     try {
-      // Ensure the element is fully rendered and visible
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        onclone: (clonedDoc) => {
-          const clonedContent = clonedDoc.getElementById('payslip-content');
-          if (clonedContent) {
-            clonedContent.style.width = '800px';
-            clonedContent.style.padding = '40px';
-            clonedContent.style.margin = '0';
-          }
-          // Remove problematic OKLCH colors for html2canvas
-          const styleTags = clonedDoc.getElementsByTagName('style');
-          for (let i = 0; i < styleTags.length; i++) {
-            try {
-              styleTags[i].innerHTML = styleTags[i].innerHTML.replace(/oklch\([^)]+\)/g, '#71717a');
-            } catch (e) {
-              console.warn('Failed to patch style tag:', e);
-            }
-          }
-
-          const allElements = clonedDoc.getElementsByTagName('*');
-          for (let i = 0; i < allElements.length; i++) {
-            const el = allElements[i] as HTMLElement;
-            if (el.style) {
-              // Forced manual check for common tailwind colors that use oklch
-              const computedStyle = window.getComputedStyle(el);
-              if (computedStyle.color.includes('oklch')) {
-                el.style.setProperty('color', '#18181b', 'important');
-              }
-              if (computedStyle.backgroundColor.includes('oklch')) {
-                el.style.setProperty('background-color', '#ffffff', 'important');
-              }
-              if (computedStyle.borderColor.includes('oklch')) {
-                el.style.setProperty('border-color', '#e4e4e7', 'important');
-              }
-            }
-          }
-        }
-      });
-      
-      const imgData = canvas.toDataURL('image/png', 1.0);
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
-      
-      const imgWidth = 210;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-      
-      const fileName = `Payslip_${data.name.replace(/\s+/g, '_') || 'Employee'}_${data.month}.pdf`;
-      
-      // Use Blob approach for better compatibility
-      const blob = pdf.output('blob');
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      await downloadElementAsPdf(contentRef.current, 'payslip-content', `Payslip_${data.name.replace(/\s+/g, '_') || 'Staff'}_${data.month}.pdf`);
+      toast('success', `Payslip for ${data.month} saved as PDF.`);
     } catch (error) {
       console.error('PDF generation failed:', error);
-      alert('Failed to generate PDF. Please try again or use the Print button.');
+      toast('error', 'Could not create the PDF. Try again, or use Print instead.');
     } finally {
       setIsGenerating(false);
     }
   };
 
+  const serif = { fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 600, letterSpacing: '-0.03em' };
+  const Row = ({ label, value, tone }: { label: string; value: string; tone?: 'neg' }) => (
+    <div className="flex items-center justify-between py-3" style={{ borderBottom: `1px solid ${DOC.line}` }}>
+      <span className="text-sm" style={{ color: tone === 'neg' ? '#a6452a' : DOC.body }}>{label}</span>
+      <span className="font-mono text-sm font-medium" style={{ color: tone === 'neg' ? '#a6452a' : DOC.ink }}>{value}</span>
+    </div>
+  );
+
+  const money = (key: 'basicSalary' | 'allowance' | 'bonus' | 'deduction', label: string) => (
+    <Field label={label} htmlFor={`ps-${key}`}>
+      <input id={`ps-${key}`} type="number" min={0} inputMode="decimal" className={inputClass + ' font-mono'} value={data[key]} onChange={e => set({ [key]: e.target.value } as any)} />
+    </Field>
+  );
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-black/90 backdrop-blur-sm print:p-0 print:bg-white overflow-y-auto">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="bg-white w-full h-full sm:h-[90vh] sm:max-w-5xl sm:rounded-3xl shadow-2xl flex flex-col sm:flex-row overflow-hidden print:shadow-none print:rounded-none"
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink-950/90 backdrop-blur-sm sm:p-6 print:bg-white print:p-0" role="dialog" aria-modal="true" aria-label="Payslip">
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 12 }}
+        transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
+        className="flex h-full w-full flex-col overflow-hidden bg-ink-900 ring-1 ring-ink-800 sm:h-[92dvh] sm:max-w-6xl sm:flex-row sm:rounded-[1.25rem] print:rounded-none print:ring-0"
       >
-        {/* Form Controls */}
-        <div className="w-full sm:w-80 bg-zinc-50 border-b sm:border-b-0 sm:border-r border-zinc-200 p-6 space-y-6 overflow-y-auto shrink-0 print:hidden">
-          <div className="flex justify-between items-center">
-            <h2 className="text-sm font-black uppercase tracking-[0.15em] text-zinc-900">Payslip Info</h2>
-            <button onClick={onClose} className="p-2 hover:bg-zinc-200 rounded-full text-zinc-400">
-               <X size={18} />
-            </button>
+        {/* Form */}
+        <div className="w-full shrink-0 space-y-5 overflow-y-auto border-b border-ink-800 p-6 sm:w-80 sm:border-b-0 sm:border-r print:hidden">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="font-display font-semibold tracking-[-0.03em] text-2xl leading-tight text-paper">Payslip</p>
+              <p className="mt-1 text-xs text-ink-500">Basic salary defaults to that month's income.</p>
+            </div>
+            <IconButton label="Close payslip" onClick={onClose} className="-mr-2"><X size={18} /></IconButton>
           </div>
 
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Recipient Name</label>
-              <input 
-                type="text" 
-                value={data.name}
-                onChange={e => setData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Staff Full Name"
-                className="w-full bg-white border border-zinc-200 p-3 rounded-xl text-xs font-bold text-zinc-900 placeholder:text-zinc-400 focus:ring-2 focus:ring-indigo-500/20 outline-none"
-              />
-            </div>
+          <Field label="Staff name" htmlFor="ps-name">
+            <input id="ps-name" type="text" value={data.name} onChange={e => set({ name: e.target.value })} placeholder="Full name" className={inputClass} />
+          </Field>
+          <Field label="Role" htmlFor="ps-role">
+            <input id="ps-role" type="text" value={data.role} onChange={e => set({ role: e.target.value })} className={inputClass} />
+          </Field>
+          <div className="grid grid-cols-[1fr_88px] gap-3">
+            <Field label="Month" htmlFor="ps-month">
+              <select id="ps-month" value={data.month} onChange={e => set({ month: e.target.value })} className={inputClass + ' appearance-none'}>
+                {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </Field>
+            <Field label="Year" htmlFor="ps-year">
+              <input id="ps-year" type="text" inputMode="numeric" value={data.year} onChange={e => set({ year: e.target.value })} className={inputClass + ' font-mono'} />
+            </Field>
+          </div>
+
+          <div className="space-y-4 border-t border-ink-800 pt-5">
+            {money('basicSalary', 'Basic salary (RM)')}
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Month</label>
-                <select 
-                  value={data.month}
-                  onChange={e => setData(prev => ({ ...prev, month: e.target.value }))}
-                  className="w-full bg-white border border-zinc-200 p-3 rounded-xl text-xs font-bold text-zinc-900 focus:ring-2 focus:ring-indigo-500/20 outline-none"
-                >
-                  {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Year</label>
-                <input 
-                  type="text" 
-                  value={data.year}
-                  onChange={e => setData(prev => ({ ...prev, year: e.target.value }))}
-                  className="w-full bg-white border border-zinc-200 p-3 rounded-xl text-xs font-bold text-zinc-900 focus:ring-2 focus:ring-indigo-500/20 outline-none"
-                />
-              </div>
+              {money('allowance', 'Allowance')}
+              {money('bonus', 'Bonus')}
             </div>
-
-            <div className="space-y-3 pt-4 border-t border-zinc-200">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Basic Salary (RM)</label>
-                <input 
-                  type="number" 
-                  value={data.basicSalary}
-                  onChange={e => setData(prev => ({ ...prev, basicSalary: e.target.value }))}
-                  className="w-full bg-white border border-zinc-300 p-3 rounded-xl text-xs font-bold text-zinc-900"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Allowance (RM)</label>
-                <input 
-                  type="number" 
-                  value={data.allowance}
-                  onChange={e => setData(prev => ({ ...prev, allowance: e.target.value }))}
-                  className="w-full bg-white border border-zinc-300 p-3 rounded-xl text-xs font-bold text-zinc-900"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Bonus (RM)</label>
-                <input 
-                  type="number" 
-                  value={data.bonus}
-                  onChange={e => setData(prev => ({ ...prev, bonus: e.target.value }))}
-                  className="w-full bg-white border border-zinc-300 p-3 rounded-xl text-xs font-bold text-zinc-900"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-red-600">Deduction (RM)</label>
-                <input 
-                  type="number" 
-                  value={data.deduction}
-                  onChange={e => setData(prev => ({ ...prev, deduction: e.target.value }))}
-                  className="w-full bg-white border border-red-200 p-3 rounded-xl text-xs font-bold text-red-600"
-                />
-              </div>
-            </div>
+            {money('deduction', 'Deductions (RM)')}
           </div>
 
-          <div className="pt-4 space-y-3">
-            <button 
-              onClick={() => downloadPDF()}
-              disabled={isGenerating}
-              className="w-full py-3 bg-zinc-900 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2"
-            >
-              <Download size={14} />
-              Save PDF
-            </button>
-            <button 
-              onClick={() => window.print()}
-              className="w-full py-3 border border-zinc-200 text-zinc-500 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2"
-            >
-              <Printer size={14} />
-              Print
-            </button>
+          <div className="flex gap-2 pt-2">
+            <Button variant="ghost" onClick={() => window.print()} className="flex-1"><Printer size={15} /> Print</Button>
+            <Button variant="primary" onClick={downloadPDF} disabled={isGenerating} className="flex-[2]">
+              <Download size={15} /> {isGenerating ? 'Preparing…' : 'Download PDF'}
+            </Button>
           </div>
         </div>
 
-        {/* Live Preview */}
-        <div className="flex-1 bg-zinc-200/50 p-4 sm:p-12 overflow-y-auto print:p-0 print:bg-white h-full">
-          <div 
+        {/* Preview */}
+        <div className="h-full flex-1 overflow-y-auto bg-ink-950 p-4 sm:p-10 print:bg-white print:p-0">
+          <div
             id="payslip-content"
             ref={contentRef}
-            className="mx-auto bg-white p-8 sm:p-16 space-y-12 shadow-sm sm:shadow-2xl w-full max-w-[800px] min-h-full sm:min-h-[1100px]"
-            style={{ backgroundColor: '#ffffff', fontFamily: '"Inter", sans-serif' }}
+            className="mx-auto w-full max-w-[800px] space-y-12 p-8 sm:min-h-[1060px] sm:p-14 sm:shadow-[0_30px_60px_-30px_rgba(0,0,0,0.8)]"
+            style={{ backgroundColor: '#ffffff', color: DOC.ink, fontFamily: '"Geist", system-ui, sans-serif' }}
           >
-            {/* Header */}
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}>
-                  <Camera size={28} style={{ color: '#ffffff' }} />
-                </div>
-                <span className="text-3xl font-black tracking-tighter" style={{ color: '#09090b' }}>ZHAYIMUUU</span>
+            <div className="flex items-end justify-between gap-6">
+              <div>
+                <p style={{ ...serif, fontSize: 40, lineHeight: 1, color: DOC.ink }}>zhayimuuu</p>
+                <p className="mt-2 text-xs" style={{ color: DOC.muted }}>Photography · Malaysia</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-mono font-bold" style={{ color: '#71717a' }}>{payslipId}</p>
+                <p style={{ ...serif, fontSize: 30, lineHeight: 1, color: DOC.accent }}>Payslip</p>
+                <p className="mt-2 font-mono text-xs" style={{ color: DOC.muted }}>{payslipId}</p>
               </div>
             </div>
 
-            {/* Info Grid */}
-            <div className="grid grid-cols-2 gap-12 pt-8 border-t border-zinc-100" style={{ borderTopColor: '#f4f4f5' }}>
-              <div className="space-y-4">
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#a1a1aa' }}>Employee Details</p>
-                <div>
-                  <p className="font-bold text-lg" style={{ color: '#09090b' }}>{data.name || '---'}</p>
-                  <p className="text-sm mt-1" style={{ color: '#71717a' }}>{data.role}</p>
-                </div>
+            <div className="grid grid-cols-2 gap-8 pt-8" style={{ borderTop: `1px solid ${DOC.line}` }}>
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-[0.08em]" style={{ color: DOC.muted }}>Paid to</p>
+                <p className="mt-3 text-lg font-semibold" style={{ color: DOC.ink }}>{data.name || '—'}</p>
+                <p className="text-sm" style={{ color: DOC.body }}>{data.role}</p>
               </div>
-              <div className="space-y-4 text-right">
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#a1a1aa' }}>Payment Period</p>
-                <div>
-                  <p className="font-bold text-lg uppercase tracking-tight" style={{ color: '#09090b' }}>{data.month} {data.year}</p>
-                  <p className="text-xs font-mono text-indigo-500 font-bold mt-1">Payment Date: {format(today, 'dd MMM yyyy')}</p>
-                </div>
+              <div className="text-right">
+                <p className="text-[11px] font-medium uppercase tracking-[0.08em]" style={{ color: DOC.muted }}>Pay period</p>
+                <p className="mt-3 text-lg font-semibold" style={{ color: DOC.ink }}>{data.month} {data.year}</p>
+                <p className="text-sm" style={{ color: DOC.body }}>Paid <span className="font-mono">{format(new Date(), 'd MMM yyyy')}</span></p>
               </div>
             </div>
 
-            {/* Earnings Table */}
-            <div className="space-y-6">
-              <p className="text-[10px] font-bold uppercase tracking-widest border-b pb-2" style={{ color: '#18181b', borderBottomColor: '#09090b' }}>Earnings & Deductions</p>
-              
-              <div className="space-y-2">
-                <div className="flex justify-between py-2 items-center">
-                  <span className="text-sm font-medium text-zinc-600">Basic Salary</span>
-                  <span className="font-mono text-sm font-bold">RM {basic.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between py-2 items-center">
-                  <span className="text-sm font-medium text-zinc-600">Allowance</span>
-                  <span className="font-mono text-sm font-bold">RM {allow.toLocaleString()}</span>
-                </div>
-                {bon > 0 && (
-                  <div className="flex justify-between py-2 items-center">
-                    <span className="text-sm font-medium text-zinc-600">Bonus</span>
-                    <span className="font-mono text-sm font-bold">RM {bon.toLocaleString()}</span>
-                  </div>
-                )}
-                {ded > 0 && (
-                  <div className="flex justify-between py-2 items-center">
-                    <span className="text-sm font-medium text-red-500">Total Deductions</span>
-                    <span className="font-mono text-sm font-bold text-red-500">- RM {ded.toLocaleString()}</span>
-                  </div>
-                )}
-              </div>
+            <div>
+              <p className="pb-2 text-[11px] font-medium uppercase tracking-[0.08em]" style={{ color: DOC.muted, borderBottom: `1.5px solid ${DOC.ink}` }}>Earnings & deductions</p>
+              <Row label="Basic salary" value={rm(basic)} />
+              <Row label="Allowance" value={rm(allow)} />
+              {bon > 0 && <Row label="Bonus" value={rm(bon)} />}
+              {ded > 0 && <Row label="Deductions" value={`− ${rm(ded)}`} tone="neg" />}
             </div>
 
-            {/* Total */}
-            <div className="pt-8 border-t-2" style={{ borderTopColor: '#09090b' }}>
-              <div className="flex justify-between items-center px-6 py-8 bg-zinc-50 rounded-2xl">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: '#a1a1aa' }}>Net Payable Amount</p>
-                  <p className="text-sm font-bold text-zinc-500 mt-1">Total credit to account</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-4xl font-black" style={{ color: '#4f46e5' }}>RM {netPay.toLocaleString()}</p>
-                  <p className="text-[10px] font-mono font-bold mt-1" style={{ color: '#71717a' }}>FOR THE MONTH OF {data.month.toUpperCase()}</p>
-                </div>
+            <div className="flex items-end justify-between rounded-2xl px-6 py-7" style={{ backgroundColor: DOC.wash }}>
+              <div>
+                <p className="text-sm font-semibold" style={{ color: DOC.ink }}>Net pay</p>
+                <p className="text-xs" style={{ color: DOC.muted }}>For {data.month} {data.year}</p>
               </div>
+              <p style={{ ...serif, fontSize: 44, lineHeight: 1, color: DOC.ink }}>{rm(netPay)}</p>
             </div>
 
-            {/* Footer */}
-            <div className="pt-12 text-center space-y-4">
-              <div className="w-48 h-px bg-zinc-100 mx-auto" />
-              <p className="text-[10px] text-zinc-400 font-mono uppercase tracking-[0.3em]">Computer Generated No Signature Required</p>
-              <p className="text-[8px] text-zinc-300 italic">This is an official payment advice for photography production services rendered by ZHAYIMUUU.</p>
-            </div>
+            <p className="pt-10 text-center text-[11px]" style={{ color: DOC.muted }}>
+              Computer-generated payslip. No signature required.
+            </p>
           </div>
         </div>
       </motion.div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Income                                                              */
+/* ------------------------------------------------------------------ */
+
+function ChartTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg bg-ink-850 px-3 py-2 ring-1 ring-ink-700 shadow-xl">
+      <p className="text-[11px] text-ink-400">{label}</p>
+      <p className="font-mono text-sm font-medium text-paper tabular">{rm(payload[0].value)}</p>
     </div>
   );
 }
@@ -365,341 +212,179 @@ export default function Finance() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [showPayslip, setShowPayslip] = useState(false);
 
-  useEffect(() => {
-    return bookingService.subscribe(setBookings);
-  }, []);
+  useEffect(() => bookingService.subscribe(setBookings), []);
 
   const years = useMemo(() => {
-    const yearsSet = new Set<number>();
-    yearsSet.add(new Date().getFullYear());
-    bookings.forEach(b => {
-      const year = new Date(b.date).getFullYear();
-      if (!isNaN(year)) yearsSet.add(year);
-    });
-    return Array.from(yearsSet).sort((a, b) => b - a);
+    const s = new Set<number>([new Date().getFullYear()]);
+    bookings.forEach(b => { const y = yearOf(b.date); if (!isNaN(y)) s.add(y); });
+    return Array.from(s).sort((a, b) => b - a);
   }, [bookings]);
 
-  const yearIncome = useMemo(() => {
-    return bookings
-      .filter(b => new Date(b.date).getFullYear() === selectedYear)
-      .reduce((acc, b) => acc + (Number(b.price) || 0), 0);
-  }, [bookings, selectedYear]);
+  const yearBookings = useMemo(
+    () => bookings.filter(b => yearOf(b.date) === selectedYear).sort((a, b) => b.date.localeCompare(a.date)),
+    [bookings, selectedYear],
+  );
+  const yearIncome = yearBookings.reduce((acc, b) => acc + (Number(b.price) || 0), 0);
+  const allTimeIncome = bookings.reduce((acc, b) => acc + (Number(b.price) || 0), 0);
 
-  const allTimeIncome = useMemo(() => {
-    return bookings.reduce((acc, b) => acc + (Number(b.price) || 0), 0);
-  }, [bookings]);
-
-  // Chart Data Preparation (12 months of selected year)
   const monthlyData = useMemo(() => {
-    const yearStart = startOfYear(new Date(selectedYear, 0, 1));
-    const yearEnd = endOfYear(new Date(selectedYear, 0, 1));
-    
-    return eachMonthOfInterval({
-      start: yearStart,
-      end: yearEnd
-    }).map(month => {
-      const monthStr = format(month, 'MMM');
-      const income = bookings
-        .filter(b => isSameMonth(parseISO(b.date), month))
-        .reduce((acc, b) => acc + (Number(b.price) || 0), 0);
-      
-      return {
-        name: monthStr,
-        income: income,
-      };
-    });
+    const start = startOfYear(new Date(selectedYear, 0, 1));
+    return eachMonthOfInterval({ start, end: endOfYear(start) }).map(month => ({
+      name: format(month, 'MMM'),
+      income: bookings
+        .filter(b => typeof b.date === 'string' && isSameMonth(parseISO(b.date), month))
+        .reduce((acc, b) => acc + (Number(b.price) || 0), 0),
+    }));
   }, [bookings, selectedYear]);
 
-  // Category Distribution for selected year
+  const bestMonth = monthlyData.reduce((best, m) => (m.income > best.income ? m : best), { name: '—', income: 0 });
+
   const categoryDistribution = useMemo(() => {
-    const yearBookings = bookings.filter(b => new Date(b.date).getFullYear() === selectedYear);
-    const total = yearBookings.reduce((acc, b) => acc + (Number(b.price) || 0), 0);
-    if (total === 0) return [];
+    if (yearIncome === 0) return [];
+    const dist: Record<string, number> = {};
+    yearBookings.forEach(b => { const c = b.eventType || 'Other'; dist[c] = (dist[c] || 0) + (Number(b.price) || 0); });
+    return Object.entries(dist)
+      .map(([label, amount]) => ({ label, amount, value: Math.round((amount / yearIncome) * 100) }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [yearBookings, yearIncome]);
 
-    const distribution: Record<string, number> = {};
-    yearBookings.forEach(b => {
-      const cat = b.eventType || 'Other';
-      distribution[cat] = (distribution[cat] || 0) + (Number(b.price) || 0);
-    });
-
-    return Object.entries(distribution)
-      .map(([label, value]) => ({
-        label,
-        value: Math.round((value / total) * 100),
-        amount: value
-      }))
-      .sort((a, b) => b.value - a.value);
-  }, [bookings, selectedYear]);
+  const kpis = [
+    { label: `Income in ${selectedYear}`, value: <NumberTicker value={yearIncome} />, accent: true },
+    { label: 'Monthly average', value: <NumberTicker value={yearIncome / 12} /> },
+    { label: 'Best month', value: <>{bestMonth.income > 0 ? bestMonth.name : '—'}</>, sub: bestMonth.income > 0 ? rm(bestMonth.income) : undefined },
+    { label: 'All-time income', value: <NumberTicker value={allTimeIncome} /> },
+  ];
 
   return (
-    <div className="space-y-6 md:space-y-8 pb-12">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6">
-        <div>
-          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 font-bold">Financial Analytics</span>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tighter text-white mt-1">Income Dashboard</h1>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <button 
-            onClick={() => setShowPayslip(true)}
-            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white rounded-2xl text-xs font-bold transition-all"
+    <div className="space-y-6">
+      <PageHeader eyebrow="Income" title={<>The year in <span className="text-safelight">ringgit</span></>}>
+        <Segmented label="Year" value={selectedYear} onChange={setSelectedYear} options={years.map(y => ({ value: y, label: y }))} />
+        <Button variant="secondary" onClick={() => setShowPayslip(true)}><FileText size={15} /> Payslip</Button>
+      </PageHeader>
+
+      <Panel className="grid grid-cols-2 lg:grid-cols-4">
+        {kpis.map((k, i) => (
+          <div
+            key={k.label}
+            className={cn(
+              'flex flex-col justify-between gap-5 p-5 md:p-6 border-ink-800',
+              i % 2 === 0 && 'border-r',
+              i < 2 && 'border-b lg:border-b-0',
+              i === 1 && 'lg:border-r',
+            )}
           >
-            <FileText size={16} />
-            Generate Payslip
-          </button>
-          
-          <div className="flex flex-nowrap md:flex-wrap items-center gap-2 bg-zinc-900 border border-zinc-800 p-1.5 rounded-2xl w-full sm:w-fit overflow-x-auto scrollbar-hide">
-            {years.map(year => (
-              <button
-                key={year}
-                onClick={() => setSelectedYear(year)}
-                className={cn(
-                  "px-4 md:px-6 py-2 rounded-xl text-xs font-bold transition-all",
-                  selectedYear === year 
-                    ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20" 
-                    : "text-zinc-500 hover:text-zinc-300"
-                )}
-              >
-                {year}
-              </button>
-            ))}
-          </div>
-        </div>
-      </header>
-
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        <div className="bg-bento-card border border-bento-border rounded-2xl p-6 backdrop-blur-md relative overflow-hidden group">
-          <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/5 rounded-full blur-3xl group-hover:bg-emerald-500/10 transition-colors" />
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
-              <TrendingUp size={20} />
-            </div>
-            <div className="flex items-center gap-1 text-[10px] font-mono text-emerald-500 font-bold bg-emerald-500/5 px-2 py-0.5 rounded-full">
-               ANNUAL
+            <p className="text-[13px] text-ink-400">{k.label}</p>
+            <div>
+              <p className={cn('font-display font-semibold tracking-[-0.03em] leading-none', k.accent ? 'text-[1.75rem] md:text-[2.2rem] text-safelight' : 'text-[1.6rem] md:text-[2rem] text-paper')}>{k.value}</p>
+              {k.sub && <p className="mt-1 font-mono text-xs text-ink-500 tabular">{k.sub}</p>}
             </div>
           </div>
-          <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">Total Income ({selectedYear})</p>
-          <div className="text-3xl md:text-4xl font-bold text-white mt-1 tracking-tight">
-            <NumberTicker value={yearIncome} />
-          </div>
-        </div>
+        ))}
+      </Panel>
 
-        <div className="bg-bento-card border border-bento-border rounded-2xl p-6 backdrop-blur-md relative overflow-hidden group">
-          <div className="absolute -right-4 -top-4 w-24 h-24 bg-indigo-500/5 rounded-full blur-3xl group-hover:bg-indigo-500/10 transition-colors" />
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
-              <Wallet size={20} />
-            </div>
-            <div className="flex items-center gap-1 text-[10px] font-mono text-indigo-400 font-bold bg-indigo-500/5 px-2 py-0.5 rounded-full">
-               LIFETIME
-            </div>
-          </div>
-          <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">All-Time Income</p>
-          <div className="text-3xl md:text-4xl font-bold text-white mt-1 tracking-tight">
-            <NumberTicker value={allTimeIncome} />
-          </div>
-        </div>
-
-        <div className="col-span-1 sm:col-span-2 lg:col-span-1 bg-gradient-to-br from-indigo-600/10 to-transparent border border-indigo-500/20 rounded-2xl p-6 backdrop-blur-md flex flex-col justify-center">
-           <div className="flex items-center gap-3 text-indigo-400 mb-2">
-             <Calendar size={18} />
-             <span className="text-xs font-bold uppercase tracking-wider">Monthly Projection</span>
-           </div>
-           <p className="text-sm text-zinc-400 leading-relaxed">
-             Average monthly income for {selectedYear} currently stands at <span className="text-white font-bold">RM {Math.round(yearIncome / 12).toLocaleString()}</span>. 
-           </p>
-        </div>
-      </div>
-
-      {/* Charts Section */}
       <div className="grid grid-cols-12 gap-4 md:gap-6">
-        <div className="col-span-12 lg:col-span-8 bg-bento-card border border-bento-border rounded-2xl p-5 md:p-8 backdrop-blur-md">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 md:mb-10">
-            <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest">Monthly Distribution</h3>
-            <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-500">
-              <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
-              REVENUE IN MYR
-            </div>
-          </div>
-          <div className="h-[300px] md:h-[400px] w-full">
+        <Panel className="col-span-12 p-5 md:p-6 lg:col-span-8">
+          <PanelTitle title="By month" meta={`Booked fees, ${selectedYear}`} />
+          <div className="mt-6 h-[280px] w-full md:h-[340px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={monthlyData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                  <linearGradient id="incomeFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#e0a458" stopOpacity={0.28} />
+                    <stop offset="100%" stopColor="#e0a458" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
-                <XAxis 
-                  dataKey="name" 
-                  stroke="#6b7280" 
-                  fontSize={10} 
-                  axisLine={false} 
-                  tickLine={false} 
-                  dy={10}
+                <CartesianGrid stroke="#2a251f" vertical={false} />
+                <XAxis dataKey="name" stroke="#7a7064" fontSize={11} axisLine={false} tickLine={false} dy={8} />
+                <YAxis
+                  stroke="#7a7064" fontSize={11} axisLine={false} tickLine={false} width={56}
+                  tickFormatter={v => (v >= 1000 ? `${(v / 1000).toFixed(v % 1000 ? 1 : 0)}k` : `${v}`)}
                 />
-                <YAxis 
-                  stroke="#6b7280" 
-                  fontSize={10} 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tickFormatter={(value) => `RM ${value}`} 
-                />
-                <Tooltip 
-                  cursor={{ stroke: '#4f46e5', strokeWidth: 1 }}
-                  contentStyle={{ 
-                    backgroundColor: '#09090b', 
-                    border: '1px solid #27272a', 
-                    borderRadius: '16px',
-                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' 
-                  }}
-                  itemStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#fff' }}
-                  labelStyle={{ fontSize: '10px', color: '#71717a', marginBottom: '4px', textTransform: 'uppercase' }}
-                  formatter={(value: any) => [`RM ${value.toLocaleString()}`, 'Income']}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="income" 
-                  stroke="#6366f1" 
-                  strokeWidth={3}
-                  fillOpacity={1} 
-                  fill="url(#colorIncome)" 
-                  animationDuration={1500}
-                />
+                <Tooltip content={<ChartTooltip />} cursor={{ stroke: '#3a332b', strokeWidth: 1 }} />
+                <Area type="monotone" dataKey="income" stroke="#e0a458" strokeWidth={2} fill="url(#incomeFill)" animationDuration={900}
+                  activeDot={{ r: 4, fill: '#e0a458', stroke: '#12100e', strokeWidth: 2 }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </Panel>
 
-        <div className="col-span-12 lg:col-span-4 bg-bento-card border border-bento-border rounded-2xl p-6 md:p-8 backdrop-blur-md flex flex-col justify-between">
-           <div>
-             <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-8 md:mb-10">Category Performance</h3>
-             <div className="space-y-6 md:space-y-8">
-               {categoryDistribution.length === 0 ? (
-                 <p className="text-xs text-zinc-600 italic">No category data for this year.</p>
-               ) : (
-                 categoryDistribution.map((item, index) => (
-                   <div key={item.label} className="space-y-3">
-                     <div className="flex justify-between items-end">
-                       <div className="min-w-0 flex-1">
-                         <p className="text-xs font-bold text-white uppercase tracking-wider truncate pb-1">{item.label}</p>
-                         <p className="text-[10px] text-zinc-500 font-mono italic">RM {item.amount.toLocaleString()}</p>
-                       </div>
-                       <span className="text-xs font-mono text-indigo-400 font-bold ml-2">{item.value}%</span>
-                     </div>
-                     <div className="h-1.5 bg-zinc-900 rounded-full overflow-hidden">
-                       <motion.div 
-                         initial={{ width: 0 }}
-                         animate={{ width: `${item.value}%` }}
-                         transition={{ duration: 1, delay: index * 0.1 }}
-                         className="h-full bg-indigo-500 rounded-full"
-                       />
-                     </div>
-                   </div>
-                 ))
-               )}
-             </div>
-           </div>
-
-           <div className="mt-10 md:mt-12 p-4 md:p-5 bg-zinc-950/50 border border-zinc-800/50 rounded-2xl">
-              <p className="text-[10px] text-zinc-500 uppercase font-mono tracking-[0.2em] mb-2 font-bold text-center">Efficiency Insight</p>
-              <p className="text-xs text-zinc-400 leading-relaxed text-center">
-                {categoryDistribution[0] 
-                  ? `${categoryDistribution[0].label} is your leading revenue generator at ${categoryDistribution[0].value}% of total annual income.`
-                  : "Start logging bookings to see performance insights here."
-                }
-              </p>
-           </div>
-        </div>
-      </div>
-
-      {/* Transaction View */}
-      <div className="bg-bento-card border border-bento-border rounded-[2rem] overflow-hidden backdrop-blur-md">
-        <div className="p-6 md:p-8 border-b border-bento-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h3 className="text-lg font-bold text-white tracking-tight">Revenue Stream</h3>
-            <p className="text-xs text-zinc-500 mt-1">Incoming payments for photography services.</p>
-          </div>
-          <div className="px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 text-[10px] font-mono uppercase tracking-widest">
-            {bookings.filter(b => b.date.startsWith(selectedYear.toString())).length} Entries
-          </div>
-        </div>
-        
-        {/* Desktop Table View */}
-        <div className="hidden md:block overflow-x-auto scrollbar-hide">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-zinc-900/50 text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
-                <th className="px-8 py-4 shrink-0">Client Name</th>
-                <th className="px-8 py-4">Type</th>
-                <th className="px-8 py-4">Date</th>
-                <th className="px-8 py-4 text-right">Income</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-800/50">
-              {bookings
-                .filter(b => b.date.startsWith(selectedYear.toString()))
-                .sort((a, b) => b.date.localeCompare(a.date))
-                .map((book) => (
-                <tr key={book.id} className="hover:bg-zinc-800/30 transition-all group">
-                  <td className="px-8 py-5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                        <DollarSign size={14} />
-                      </div>
-                      <span className="text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors">
-                        {book.clientName}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-8 py-5">
-                    <span className="text-[10px] px-3 py-1 bg-zinc-800/50 rounded-full text-zinc-500 font-bold tracking-tighter uppercase">
-                      {book.eventType}
-                    </span>
-                  </td>
-                  <td className="px-8 py-5 text-xs text-zinc-500 font-mono">{book.date}</td>
-                  <td className="px-8 py-5 text-right text-white font-black text-sm">
-                    +RM {Number(book.price).toLocaleString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Mobile Card List View */}
-        <div className="md:hidden divide-y divide-zinc-800/50">
-          {bookings
-            .filter(b => b.date.startsWith(selectedYear.toString()))
-            .sort((a, b) => b.date.localeCompare(a.date))
-            .map((book) => (
-            <div key={book.id} className="p-4 flex justify-between items-center bg-zinc-900/20">
-              <div className="space-y-1">
-                <p className="text-sm font-bold text-white">{book.clientName}</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-[9px] px-2 py-0.5 bg-zinc-800 rounded text-zinc-400 uppercase font-bold tracking-wider">{book.eventType}</span>
-                  <span className="text-[9px] text-zinc-600 font-mono">{book.date}</span>
+        <Panel className="col-span-12 flex flex-col p-5 md:p-6 lg:col-span-4">
+          <PanelTitle title="By shoot type" meta="Share of the year's income" />
+          <div className="mt-6 flex-1 space-y-5">
+            {categoryDistribution.length === 0 ? (
+              <p className="text-sm text-ink-500">No bookings in {selectedYear} yet.</p>
+            ) : categoryDistribution.map((item, i) => (
+              <div key={item.label}>
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="truncate text-sm text-paper">{item.label}</p>
+                  <p className="font-mono text-xs text-ink-400 tabular">{rm(item.amount)} · <span className="text-paper">{item.value}%</span></p>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-850">
+                  <motion.div
+                    initial={{ scaleX: 0 }}
+                    animate={{ scaleX: item.value / 100 }}
+                    transition={{ duration: 0.8, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] }}
+                    style={{ transformOrigin: 'left' }}
+                    className={cn('h-full w-full rounded-full', i === 0 ? 'bg-safelight' : 'bg-ink-500')}
+                  />
                 </div>
               </div>
-              <p className="text-emerald-400 font-black text-sm leading-none">+RM {Number(book.price).toLocaleString()}</p>
-            </div>
-          ))}
-          {bookings.filter(b => b.date.startsWith(selectedYear.toString())).length === 0 && (
-            <div className="py-20 text-center">
-              <p className="text-zinc-600 font-medium italic">No income records found for {selectedYear}.</p>
-            </div>
+            ))}
+          </div>
+          {categoryDistribution[0] && (
+            <p className="mt-6 border-t border-ink-800 pt-4 text-[13px] leading-relaxed text-ink-400">
+              <span className="text-paper">{categoryDistribution[0].label}</span> brought in {categoryDistribution[0].value}% of {selectedYear}'s income.
+            </p>
           )}
-        </div>
+        </Panel>
       </div>
 
-      <AnimatePresence>
-        {showPayslip && (
-          <PayslipModal onClose={() => setShowPayslip(false)} monthlyData={monthlyData} />
+      <Panel className="overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 md:px-6">
+          <PanelTitle title="Transactions" meta={`${yearBookings.length} booking${yearBookings.length === 1 ? '' : 's'} in ${selectedYear}`} />
+        </div>
+        {yearBookings.length === 0 ? (
+          <EmptyState icon={Receipt} title={`Nothing in ${selectedYear}`} body="Booked fees appear here as soon as a client is added." className="border-t border-ink-800" />
+        ) : (
+          <>
+            <table className="hidden w-full border-t border-ink-800 text-left md:table">
+              <thead>
+                <tr className="border-b border-ink-800 text-xs text-ink-500">
+                  <th className="px-6 py-3 font-normal">Client</th>
+                  <th className="px-6 py-3 font-normal">Shoot</th>
+                  <th className="px-6 py-3 font-normal">Date</th>
+                  <th className="px-6 py-3 text-right font-normal">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink-800">
+                {yearBookings.map(b => (
+                  <tr key={b.id} className="transition-colors hover:bg-ink-850/60">
+                    <td className="px-6 py-3.5 font-medium text-paper">{b.clientName}</td>
+                    <td className="px-6 py-3.5 text-sm text-ink-300">{b.eventType}</td>
+                    <td className="px-6 py-3.5 font-mono text-[13px] text-ink-400 tabular">{format(parseISO(b.date), 'd MMM yyyy')}</td>
+                    <td className="px-6 py-3.5 text-right font-mono text-sm text-sage tabular">+{rm(Number(b.price) || 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <ul className="divide-y divide-ink-800 border-t border-ink-800 md:hidden">
+              {yearBookings.map(b => (
+                <li key={b.id} className="flex items-center justify-between gap-4 px-5 py-3.5">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-paper">{b.clientName}</p>
+                    <p className="text-xs text-ink-500">{b.eventType} · <span className="font-mono">{format(parseISO(b.date), 'd MMM')}</span></p>
+                  </div>
+                  <p className="shrink-0 font-mono text-sm text-sage tabular">+{rm(Number(b.price) || 0)}</p>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
+      </Panel>
+
+      <AnimatePresence>
+        {showPayslip && <PayslipModal onClose={() => setShowPayslip(false)} monthlyData={monthlyData} />}
       </AnimatePresence>
     </div>
   );
 }
-

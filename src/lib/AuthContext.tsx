@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { auth } from './firebase';
+import { useToast } from '../components/ui';
 
 interface AuthContextType {
   user: User | null;
@@ -16,6 +17,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [loggingIn, setLoggingIn] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
@@ -41,11 +43,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       if (error.code === 'auth/popup-blocked') {
-        alert("The login popup was blocked by your browser. Please allow popups for this site and try again.");
+        toast('error', "Your browser blocked the Google sign-in window. Allow pop-ups for this site and try again.");
         return;
       }
 
-      alert(`Login failed: ${error.message}. Please check if your domain is added to Firebase Authorized Domains.`);
+      toast('error', `Sign-in failed: ${error.message}
+Check that this domain is listed under Firebase Authorized Domains.`);
     } finally {
       setLoggingIn(false);
     }
