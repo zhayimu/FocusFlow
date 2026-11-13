@@ -1,128 +1,241 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Search, 
-  UserPlus, 
-  MoreHorizontal, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  X,
-  FileText,
-  Edit,
-  Trash2,
-  Camera,
-  Calendar as CalendarIcon,
-  MessageSquare,
-  Download,
-  ChevronRight
-} from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Search, UserPlus, X, FileText, Pencil, Trash2, Download, Printer, Users, Aperture } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../lib/utils';
 import { format, parseISO } from 'date-fns';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
 import { clientService, bookingService } from '../lib/firestoreService';
+import { downloadElementAsPdf, DOC } from '../lib/pdf';
+import {
+  PageHeader, Panel, Button, IconButton, Field, inputClass, Sheet, ConfirmDialog, EmptyState, Pagination, Monogram,
+  useToast, describeError, rm,
+} from './ui';
 
-interface Client {
-  id: string;
-  name: string;
-  phone: string;
-  remarks: string;
+const PAGE_SIZE = 10;
+const SHOOT_TYPES = ['Wedding', 'Convocation', 'Portrait', 'Commercial', 'Event'];
+
+const emptyForm = () => ({
+  name: '',
+  phone: '',
+  eventType: 'Wedding',
+  eventDate: format(new Date(), 'yyyy-MM-dd'),
+  price: 0,
+  location: '',
+  remarks: '',
+});
+
+const safeDate = (d?: string, fmt = 'd MMM yyyy') => {
+  if (!d) return '—';
+  try { return format(parseISO(d), fmt); } catch { return d; }
+};
+
+/* ------------------------------------------------------------------ */
+/* Invoice document                                                    */
+/* ------------------------------------------------------------------ */
+
+function InvoiceModal({ client, onClose }: { client: any; onClose: () => void }) {
+  const toast = useToast();
+  const [isGenerating, setIsGenerating] = useState(false);
+  const invoiceRef = useRef<HTMLDivElement>(null);
+
+  // Stable for the life of the modal (previously regenerated on every render).
+  const { today, dueDate, invoiceNumber } = useMemo(() => {
+    const t = new Date();
+    return {
+      today: t,
+      dueDate: new Date(t.getTime() + 14 * 24 * 60 * 60 * 1000),
+      invoiceNumber: `INV-${t.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const amount = Number(client.price) || 0;
+
+  const downloadPDF = async () => {
+    if (!invoiceRef.current) return;
+    setIsGenerating(true);
+    try {
+      await downloadElementAsPdf(invoiceRef.current, 'invoice-content', `${invoiceNumber}_${client.name.replace(/\s+/g, '_')}.pdf`);
+      toast('success', `${invoiceNumber} saved as PDF.`);
+    } catch (error) {
+      console.error('PDF generation failed:', error);
+      toast('error', 'Could not create the PDF. Try again, or use Print instead.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink-950/90 backdrop-blur-sm sm:p-6 print:bg-white print:p-0" role="dialog" aria-modal="true" aria-label={`Invoice for ${client.name}`}>
+      <motion.div
+        id="invoice-print-area"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 12 }}
+        transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
+        className="flex h-full w-full flex-col overflow-hidden bg-ink-900 ring-1 ring-ink-800 sm:h-[92dvh] sm:max-w-4xl sm:rounded-[1.25rem] print:h-auto print:max-w-none print:rounded-none print:bg-white print:ring-0"
+      >
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-ink-800 px-4 py-3 sm:px-6 print:hidden">
+          <div className="min-w-0">
+            <p className="font-display font-semibold tracking-[-0.03em] text-xl leading-tight text-paper">Invoice</p>
+            <p className="mt-1 truncate font-mono text-xs text-ink-500">{invoiceNumber} · {client.name}</p>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Button size="sm" variant="ghost" onClick={() => window.print()}><Printer size={14} /> <span className="hidden sm:inline">Print</span></Button>
+            <Button size="sm" variant="primary" onClick={downloadPDF} disabled={isGenerating}>
+              <Download size={14} /> {isGenerating ? 'Preparing…' : 'Download PDF'}
+            </Button>
+            <IconButton label="Close invoice" onClick={onClose}><X size={18} /></IconButton>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto bg-ink-950 p-0 sm:p-8 print:bg-white print:p-0">
+          <div
+            id="invoice-content"
+            ref={invoiceRef}
+            className="mx-auto w-full max-w-[800px] space-y-12 p-7 sm:min-h-[1060px] sm:p-14 sm:shadow-[0_30px_60px_-30px_rgba(0,0,0,0.8)]"
+            style={{ backgroundColor: '#ffffff', color: DOC.ink, fontFamily: '"Geist", system-ui, sans-serif' }}
+          >
+            {/* Masthead */}
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 600, letterSpacing: '-0.03em', fontSize: 40, lineHeight: 1, color: DOC.ink }}>zhayimuuu</p>
+                <p className="mt-2 text-xs" style={{ color: DOC.muted }}>Photography · Malaysia</p>
+              </div>
+              <div className="sm:text-right">
+                <p style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 600, letterSpacing: '-0.03em', fontSize: 30, lineHeight: 1, color: DOC.accent }}>Invoice</p>
+                <p className="mt-2 font-mono text-xs" style={{ color: DOC.muted }}>{invoiceNumber}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-8 border-t pt-8 sm:grid-cols-2" style={{ borderTopColor: DOC.line }}>
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-[0.08em]" style={{ color: DOC.muted }}>Billed to</p>
+                <p className="mt-3 text-lg font-semibold" style={{ color: DOC.ink }}>{client.name}</p>
+                <p className="mt-1 text-sm" style={{ color: DOC.body }}>{client.phone}</p>
+                {client.location && <p className="text-sm" style={{ color: DOC.body }}>{client.location}</p>}
+              </div>
+              <div className="space-y-2 sm:text-right">
+                <p className="text-[11px] font-medium uppercase tracking-[0.08em]" style={{ color: DOC.muted }}>Dates</p>
+                <p className="mt-3 text-sm" style={{ color: DOC.body }}>Issued <span className="font-mono font-medium" style={{ color: DOC.ink }}>{format(today, 'd MMM yyyy')}</span></p>
+                <p className="text-sm" style={{ color: DOC.body }}>Due <span className="font-mono font-medium" style={{ color: DOC.accent }}>{format(dueDate, 'd MMM yyyy')}</span></p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[420px] text-left">
+                <thead>
+                  <tr className="text-[11px] font-medium uppercase tracking-[0.08em]" style={{ color: DOC.muted, borderBottom: `1.5px solid ${DOC.ink}` }}>
+                    <th className="pb-3 font-medium">Description</th>
+                    <th className="pb-3 text-center font-medium">Shoot date</th>
+                    <th className="pb-3 text-right font-medium">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderBottom: `1px solid ${DOC.line}` }}>
+                    <td className="py-5 pr-4 align-top">
+                      <p className="font-semibold" style={{ color: DOC.ink }}>{client.eventType} photography</p>
+                      <p className="mt-1 text-sm" style={{ color: DOC.body }}>{client.remarks || 'Coverage, culling, colour grading and online gallery delivery.'}</p>
+                    </td>
+                    <td className="py-5 text-center align-top font-mono text-sm" style={{ color: DOC.body }}>{safeDate(client.eventDate)}</td>
+                    <td className="py-5 text-right align-top font-mono font-medium" style={{ color: DOC.ink }}>{rm(amount)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-end">
+              <div className="w-full space-y-3 sm:w-72">
+                <div className="flex justify-between text-sm" style={{ color: DOC.body }}><span>Subtotal</span><span className="font-mono">{rm(amount)}</span></div>
+                <div className="flex justify-between text-sm" style={{ color: DOC.body }}><span>Tax (0%)</span><span className="font-mono">RM 0</span></div>
+                <div className="flex items-baseline justify-between pt-4" style={{ borderTop: `1.5px solid ${DOC.ink}` }}>
+                  <span className="text-sm font-semibold" style={{ color: DOC.ink }}>Total due</span>
+                  <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 600, letterSpacing: '-0.03em', fontSize: 34, lineHeight: 1, color: DOC.ink }}>{rm(amount)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-16 text-center">
+              <p style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 600, letterSpacing: '-0.03em', fontSize: 22, color: DOC.body }}>Thank you for letting us photograph your day.</p>
+              <p className="font-mono text-[11px]" style={{ color: DOC.muted }}>zaimzaidi04@gmail.com · www.zhayimuuu.my</p>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
 }
 
+/* ------------------------------------------------------------------ */
+/* Clients                                                             */
+/* ------------------------------------------------------------------ */
+
 export default function Crm() {
+  const toast = useToast();
   const [clients, setClients] = useState<any[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<any | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 10;
-
   const [isSaving, setIsSaving] = useState(false);
-
-  // Form State
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    eventType: 'Wedding',
-    eventDate: format(new Date(), 'yyyy-MM-dd'),
-    price: 0,
-    location: '',
-    remarks: ''
-  });
-
+  const [formData, setFormData] = useState(emptyForm);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
-  const [clientToDelete, setClientToDelete] = useState<{id: string, name: string} | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [clientToDelete, setClientToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [invoiceClient, setInvoiceClient] = useState<any | null>(null);
 
-  useEffect(() => {
-    return clientService.subscribe(setClients);
-  }, []);
+  useEffect(() => clientService.subscribe(setClients), []);
+  useEffect(() => { setCurrentPage(1); }, [searchTerm]);
+
+  const set = (patch: Partial<ReturnType<typeof emptyForm>>) => setFormData(f => ({ ...f, ...patch }));
 
   const confirmDeleteClient = async () => {
     if (!clientToDelete) return;
     const { id, name } = clientToDelete;
-    
     setIsDeleting(id);
-    setClientToDelete(null);
     try {
-      // 1. Attempt to delete associated bookings (non-blocking for the client record)
       try {
-        console.log('Attempting relational cleanup...');
         await bookingService.deleteAllByClientId(id);
       } catch (bookingErr) {
         console.warn('Booking cleanup failed, proceeding with client deletion:', bookingErr);
       }
-
-      // 2. Delete the primary client record
-      console.log('Deleting primary client record...');
       await clientService.delete(id);
-      
-      setSuccessMessage(`Client ${name} has been removed.`);
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err: any) {
-      console.error('CRITICAL: Failed to delete client:', err);
-      let errorMsg = 'Could not delete client.';
-      try {
-        const parsed = JSON.parse(err.message);
-        errorMsg = `Error: ${parsed.error}\nPath: ${parsed.path}\nOp: ${parsed.operationType}\nUID: ${parsed.authInfo?.userId}`;
-      } catch {
-        errorMsg = err.message || 'Unknown error occurred.';
-      }
-      alert(`Deletion Failed:\n${errorMsg}\n\nThis usually means you don't have permission to delete this specific record.`);
+      toast('success', `${name} and their bookings were removed.`);
+    } catch (err) {
+      console.error('Failed to delete client:', err);
+      toast('error', `Couldn't delete ${name}. ${describeError(err)}`);
     } finally {
       setIsDeleting(null);
+      setClientToDelete(null);
     }
   };
 
-  const handleAddClient = async (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     try {
       if (editingClient) {
-        // Update existing client
         await clientService.update(editingClient.id, {
           name: formData.name,
           phone: formData.phone,
           remarks: formData.remarks,
-          // Sync metadata to client record for easy recovery in edit modal
           eventType: formData.eventType,
           eventDate: formData.eventDate,
           price: formData.price,
-          location: formData.location
+          location: formData.location,
         });
-        
-        // SYNC: Update client info in their bookings
         await bookingService.updateByClientId(editingClient.id, editingClient.name, {
           clientName: formData.name,
           eventType: formData.eventType,
           date: formData.eventDate,
           price: Number(formData.price),
           location: formData.location,
-          remarks: formData.remarks
+          remarks: formData.remarks,
         });
+        toast('success', `Saved changes to ${formData.name}.`);
       } else {
-        // 1. Create client
         const clientRef = await clientService.add({
           name: formData.name,
           phone: formData.phone,
@@ -130,11 +243,9 @@ export default function Crm() {
           eventType: formData.eventType,
           eventDate: formData.eventDate,
           price: formData.price,
-          location: formData.location
+          location: formData.location,
         });
-
         if (clientRef) {
-          // 2. Create initial booking
           await bookingService.add({
             clientId: clientRef.id,
             clientName: formData.name,
@@ -143,26 +254,23 @@ export default function Crm() {
             price: Number(formData.price),
             location: formData.location,
             status: 'Booked',
-            remarks: formData.remarks
+            remarks: formData.remarks,
           });
         }
+        toast('success', `${formData.name} added and booked for ${safeDate(formData.eventDate, 'd MMM')}.`);
       }
-
-      setIsModalOpen(false);
+      setIsFormOpen(false);
       setEditingClient(null);
-      setFormData({
-        name: '', phone: '', eventType: 'Wedding',
-        eventDate: format(new Date(), 'yyyy-MM-dd'),
-        price: 0, location: '', remarks: ''
-      });
+      setFormData(emptyForm());
     } catch (err) {
       console.error(err);
+      toast('error', `Couldn't save. ${describeError(err)}`);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const openEditModal = (client: any) => {
+  const openEdit = (client: any) => {
     setEditingClient(client);
     setFormData({
       name: client.name || '',
@@ -171,606 +279,188 @@ export default function Crm() {
       eventType: client.eventType || 'Wedding',
       eventDate: client.eventDate || format(new Date(), 'yyyy-MM-dd'),
       price: client.price || 0,
-      location: client.location || ''
+      location: client.location || '',
     });
-    setIsModalOpen(true);
+    setIsFormOpen(true);
   };
 
-  const openAddModal = () => {
+  const openAdd = () => {
     setEditingClient(null);
-    setFormData({
-      name: '', phone: '', eventType: 'Wedding',
-      eventDate: format(new Date(), 'yyyy-MM-dd'),
-      price: 0, location: '', remarks: ''
-    });
-    setIsModalOpen(true);
+    setFormData(emptyForm());
+    setIsFormOpen(true);
   };
 
-  const [invoiceClient, setInvoiceClient] = useState<any | null>(null);
-
-  const generateInvoice = (client: any) => {
-    setInvoiceClient(client);
-  };
-
-  const InvoiceModal = ({ client, onClose }: { client: any, onClose: () => void }) => {
-    const today = new Date();
-    const dueDate = new Date();
-    dueDate.setDate(today.getDate() + 14);
-
-    const invoiceNumber = `INV-${today.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-    const [isGenerating, setIsGenerating] = useState(false);
-    const invoiceRef = useRef<HTMLDivElement>(null);
-
-    const downloadPDF = async () => {
-      const element = invoiceRef.current;
-      if (!element) return;
-      
-      setIsGenerating(true);
-      try {
-        const canvas = await html2canvas(element, {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-          onclone: (clonedDoc) => {
-            const clonedContent = clonedDoc.getElementById('invoice-content');
-            if (clonedContent) {
-              clonedContent.style.width = '800px';
-              clonedContent.style.padding = '40px';
-              clonedContent.style.margin = '0';
-            }
-            // Remove problematic OKLCH colors for html2canvas
-            const styleTags = clonedDoc.getElementsByTagName('style');
-            for (let i = 0; i < styleTags.length; i++) {
-              try {
-                styleTags[i].innerHTML = styleTags[i].innerHTML.replace(/oklch\([^)]+\)/g, '#71717a');
-              } catch (e) {
-                console.warn('Failed to patch style tag:', e);
-              }
-            }
-
-            const allElements = clonedDoc.getElementsByTagName('*');
-            for (let i = 0; i < allElements.length; i++) {
-              const el = allElements[i] as HTMLElement;
-              if (el.style) {
-                const computedStyle = window.getComputedStyle(el);
-                if (computedStyle.color.includes('oklch')) {
-                  el.style.setProperty('color', '#18181b', 'important');
-                }
-                if (computedStyle.backgroundColor.includes('oklch')) {
-                  el.style.setProperty('background-color', '#ffffff', 'important');
-                }
-                if (computedStyle.borderColor.includes('oklch')) {
-                  el.style.setProperty('border-color', '#e4e4e7', 'important');
-                }
-              }
-            }
-          }
-        });
-        
-        const imgData = canvas.toDataURL('image/png', 1.0);
-        const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'mm',
-          format: 'a4'
-        });
-        
-        const imgWidth = 210;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        
-        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-        
-        const fileName = `${invoiceNumber}_${client.name.replace(/\s+/g, '_')}.pdf`;
-        
-        // Use Blob approach for better compatibility
-        const blob = pdf.output('blob');
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      } catch (error) {
-        console.error('PDF generation failed:', error);
-        alert('Failed to generate PDF. Please try again.');
-      } finally {
-        setIsGenerating(false);
-      }
-    };
-
-    return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-black/90 backdrop-blur-sm print:p-0 print:bg-white print:backdrop-blur-none">
-        <motion.div 
-          id="invoice-print-area"
-          initial={{ opacity: 0, scale: 0.95, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="bg-white w-full h-full sm:h-[90vh] sm:max-w-4xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden print:shadow-none print:rounded-none print:max-h-none print:static print:w-full print:max-w-none"
-        >
-          {/* Controls - Hidden during print */}
-          <div className="bg-zinc-100 px-4 sm:px-8 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-center gap-3 border-b border-zinc-200 print:hidden shrink-0">
-            <div className="flex gap-2 w-full sm:w-auto ml-auto">
-              <button 
-                onClick={() => downloadPDF()}
-                disabled={isGenerating}
-                className={cn(
-                  "flex-1 sm:flex-none px-4 py-2 bg-zinc-900 text-white rounded-xl text-[10px] sm:text-xs font-bold hover:bg-black transition-colors flex items-center justify-center gap-2",
-                  isGenerating && "opacity-50 cursor-not-allowed"
-                )}
-              >
-                {isGenerating ? '...' : (
-                  <>
-                    <Download size={14} />
-                    <span>PDF</span>
-                  </>
-                )}
-              </button>
-              <button onClick={onClose} className="p-2 hover:bg-zinc-200 rounded-full text-zinc-500 transition-colors sm:ml-2">
-                <X size={20} />
-              </button>
-            </div>
-          </div>
-
-          {/* Invoice Page Body */}
-          <div className="flex-1 overflow-y-auto bg-zinc-100/50 p-0 sm:p-8 print:p-0 print:bg-white" id="invoice-download-area">
-            <div id="invoice-content" ref={invoiceRef} className="mx-auto bg-white p-6 sm:p-12 space-y-8 sm:space-y-12 shadow-sm sm:shadow-lg w-full max-w-[800px] min-h-full sm:min-h-[1100px]" style={{ backgroundColor: '#ffffff', fontFamily: '"Inter", sans-serif' }}>
-              {/* Header */}
-              <div className="flex flex-col sm:flex-row justify-between items-center gap-6 sm:gap-0" style={{ color: '#18181b' }}>
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}>
-                    <Camera size={24} className="sm:w-7 sm:h-7" style={{ color: '#ffffff' }} />
-                  </div>
-                  <span className="text-2xl sm:text-3xl font-black tracking-tighter" style={{ color: '#09090b' }}>ZHAYIMUUU</span>
-                </div>
-                <div className="text-left sm:text-right">
-                  <p className="text-[10px] sm:text-xs font-mono font-bold" style={{ color: '#71717a' }}>{invoiceNumber}</p>
-                </div>
-              </div>
-
-              {/* Addresses */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 sm:gap-12 pt-6 sm:pt-8 border-t border-zinc-100" style={{ borderTopColor: '#f4f4f5' }}>
-                <div className="space-y-3 sm:space-y-4">
-                  <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest" style={{ color: '#a1a1aa' }}>Bill To</p>
-                  <div>
-                    <p className="font-bold text-base sm:text-lg" style={{ color: '#09090b' }}>{client.name}</p>
-                    <p className="text-xs sm:text-sm mt-1" style={{ color: '#71717a' }}>{client.phone}</p>
-                    <p className="text-xs sm:text-sm" style={{ color: '#71717a' }}>{client.location || 'Client Location'}</p>
-                  </div>
-                </div>
-                <div className="space-y-3 sm:space-y-4 text-left sm:text-right">
-                  <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest" style={{ color: '#a1a1aa' }}>Details</p>
-                  <div className="space-y-2">
-                    <div className="flex justify-start sm:justify-end gap-4">
-                      <span className="text-[10px] sm:text-xs" style={{ color: '#a1a1aa' }}>Invoice Date:</span>
-                      <span className="text-[10px] sm:text-xs font-bold font-mono" style={{ color: '#18181b' }}>{format(today, 'dd MMM yyyy')}</span>
-                    </div>
-                    <div className="flex justify-start sm:justify-end gap-4">
-                      <span className="text-[10px] sm:text-xs" style={{ color: '#a1a1aa' }}>Due Date:</span>
-                      <span className="text-[10px] sm:text-xs font-bold font-mono" style={{ color: '#4f46e5' }}>{format(today.getTime() + 1209600000, 'dd MMM yyyy')}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Service Table */}
-              <div className="space-y-6 pt-6 sm:pt-8">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left min-w-[400px] sm:min-w-0">
-                    <thead>
-                      <tr className="border-b-2 border-zinc-900 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest" style={{ borderBottomColor: '#09090b' }}>
-                        <th className="py-4">Description</th>
-                        <th className="py-4 text-center">Service Date</th>
-                        <th className="py-4 text-right">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-100" style={{ borderColor: '#f4f4f5' }}>
-                      <tr className="group">
-                        <td className="py-4 sm:py-6">
-                          <p className="font-bold text-sm sm:text-base" style={{ color: '#09090b' }}>Photography Session: {client.eventType}</p>
-                          <p className="text-[10px] sm:text-xs mt-1 italic" style={{ color: '#71717a' }}>{client.remarks || 'Standard production and retouching'}</p>
-                        </td>
-                        <td className="py-4 sm:py-6 text-center text-xs font-mono" style={{ color: '#71717a' }}>
-                          {client.eventDate ? format(parseISO(client.eventDate), 'dd MMM yyyy') : 'N/A'}
-                        </td>
-                        <td className="py-4 sm:py-6 text-right font-bold text-sm sm:text-base" style={{ color: '#09090b' }}>
-                          RM {Number(client.price).toLocaleString()}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Totals */}
-              <div className="flex justify-end pt-6 sm:pt-8">
-                <div className="w-full sm:w-64 space-y-3 sm:space-y-4">
-                  <div className="flex justify-between" style={{ color: '#71717a' }}>
-                    <span className="text-[10px] sm:text-xs uppercase tracking-widest font-bold">Subtotal</span>
-                    <span className="text-[10px] sm:text-xs font-mono font-bold">RM {Number(client.price).toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between" style={{ color: '#71717a' }}>
-                    <span className="text-[10px] sm:text-xs uppercase tracking-widest font-bold">Tax (0%)</span>
-                    <span className="text-[10px] sm:text-xs font-mono font-bold">RM 0.00</span>
-                  </div>
-                  <div className="flex justify-between items-center pt-3 sm:pt-4 border-t-2" style={{ borderTopColor: '#09090b' }}>
-                    <span className="text-xs sm:text-sm font-black uppercase tracking-widest" style={{ color: '#09090b' }}>Total Due</span>
-                    <span className="text-lg sm:text-xl font-black" style={{ color: '#4f46e5' }}>RM {Number(client.price).toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="pt-20 text-center space-y-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: '#a1a1aa' }}>Thank you for your business</p>
-                <div className="flex justify-center gap-6 text-[9px] font-mono" style={{ color: '#a1a1aa' }}>
-                  <span>zaimzaidi04@gmail.com</span>
-                  <span>•</span>
-                  <span>www.zhayimuuu.my</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    );
-  };
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
-
-  const filteredClients = clients.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const q = searchTerm.trim().toLowerCase();
+  const filteredClients = clients.filter(c =>
+    !q ||
+    String(c.name || '').toLowerCase().includes(q) ||
+    String(c.phone || '').toLowerCase().includes(q) ||
+    String(c.eventType || '').toLowerCase().includes(q),
   );
-
   const totalPages = Math.ceil(filteredClients.length / PAGE_SIZE);
-  const paginatedClients = filteredClients.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
+  const paginated = filteredClients.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const RowActions = ({ client }: { client: any }) => (
+    <div className="flex justify-end gap-0.5">
+      <IconButton label={`Invoice for ${client.name}`} onClick={() => setInvoiceClient(client)}><FileText size={16} /></IconButton>
+      <IconButton label={`Edit ${client.name}`} onClick={() => openEdit(client)}><Pencil size={16} /></IconButton>
+      <IconButton
+        label={`Delete ${client.name}`}
+        tone="danger"
+        disabled={isDeleting === client.id}
+        onClick={() => setClientToDelete({ id: client.id, name: client.name })}
+      >
+        {isDeleting === client.id ? <Aperture size={16} className="animate-spin" /> : <Trash2 size={16} />}
+      </IconButton>
+    </div>
   );
 
   return (
-    <div className="space-y-4 md:space-y-8 h-full flex flex-col">
-      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
-        <div>
-          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 font-bold">Relationship Architecture</span>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tighter text-white mt-1">Clients</h1>
-        </div>
-        <div className="flex items-center gap-4 w-full sm:w-auto">
-          <AnimatePresence>
-            {successMessage && (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                className="hidden md:block px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium rounded-xl"
-              >
-                {successMessage}
-              </motion.div>
-            )}
-          </AnimatePresence>
-          <button 
-            onClick={openAddModal}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-bento-accent text-white rounded-xl hover:bg-bento-accent-hover transition-all duration-300 shadow-lg shadow-indigo-500/20"
-          >
-            <UserPlus size={18} />
-            <span className="text-sm font-semibold">New Entry</span>
-          </button>
-        </div>
-      </header>
+    <div className="space-y-6">
+      <PageHeader eyebrow={`${clients.length} on file`} title="Clients">
+        <Button variant="primary" onClick={openAdd} className="w-full sm:w-auto"><UserPlus size={16} /> New client</Button>
+      </PageHeader>
 
       <div className="relative">
-        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500">
-          <Search size={18} />
-        </div>
-        <input 
-          type="text"
-          placeholder="Filter inquiries..."
-          className="w-full pl-12 pr-6 py-3 md:py-4 bg-bento-card border border-bento-border rounded-2xl focus:outline-none focus:border-indigo-500/50 transition-all text-zinc-100 placeholder:text-zinc-600"
+        <Search size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-500" />
+        <label htmlFor="client-search" className="sr-only">Search clients</label>
+        <input
+          id="client-search"
+          type="search"
+          placeholder="Search by name, phone or shoot type"
+          className={inputClass + ' h-12 pl-10'}
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={e => setSearchTerm(e.target.value)}
         />
       </div>
 
-      {/* Desktop Table View */}
-      <div className="hidden md:block flex-grow bg-bento-card border border-bento-border rounded-2xl overflow-auto scrollbar-hide min-h-0 backdrop-blur-md shadow-inner">
-        <table className="w-full text-left border-collapse relative">
-          <thead className="sticky top-0 z-10 bg-zinc-900 border-b border-bento-border">
-            <tr>
-              <th className="px-6 py-4 text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">Principal</th>
-              <th className="px-6 py-4 text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">Channel</th>
-              <th className="px-6 py-4 text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-800">
-            {paginatedClients.length === 0 ? (
-              <tr>
-                <td colSpan={3} className="px-6 py-20 text-center text-zinc-700 italic text-lg font-medium">
-                  No active inquiries found.
-                </td>
-              </tr>
-            ) : (
-              paginatedClients.map((client) => (
-                <tr key={client.id} className="hover:bg-zinc-800/30 transition-colors group">
-                  <td className="px-6 py-5">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center font-bold text-indigo-400 text-sm">
-                        {client.name.charAt(0)}
-                      </div>
-                      <p className="font-semibold text-zinc-100">{client.name}</p>
-                    </div>
-                  </td>
-                  <td className="px-6 py-5">
-                    <div className="space-y-1">
-                      <p className="text-[12px] text-zinc-300 font-mono italic">{client.phone}</p>
-                    </div>
-                  </td>
-                  <td className="px-6 py-5 text-right">
-                    <div className="flex justify-end gap-2">
-                       <button 
-                        onClick={() => openEditModal(client)}
-                        className="p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-500 hover:text-indigo-400 hover:border-indigo-500/50 hover:bg-zinc-800 transition-all active:scale-95"
-                        title="Edit Details"
-                      >
-                        <Edit size={18} />
-                      </button>
-                       <button 
-                        onClick={() => generateInvoice(client)}
-                        className="p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-500 hover:text-indigo-400 hover:border-indigo-500/50 hover:bg-zinc-800 transition-all active:scale-95"
-                        title="Generate Invoice"
-                      >
-                        <FileText size={18} />
-                      </button>
-                      <button 
-                        onClick={() => setClientToDelete({id: client.id, name: client.name})}
-                        disabled={isDeleting === client.id}
-                        className={cn(
-                          "p-2 bg-zinc-900 border border-zinc-800 rounded-lg transition-all active:scale-95",
-                          isDeleting === client.id 
-                            ? "opacity-50 cursor-not-allowed text-zinc-600" 
-                            : "text-zinc-500 hover:text-red-400 hover:border-red-500/50 hover:bg-zinc-800"
-                        )}
-                        title="Delete Inquiry"
-                      >
-                        {isDeleting === client.id ? (
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                          >
-                            <MoreHorizontal size={18} />
-                          </motion.div>
-                        ) : (
-                          <Trash2 size={18} />
-                        )}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Mobile Card View */}
-      <div className="md:hidden flex-grow overflow-y-auto scrollbar-hide space-y-4 pb-4">
-        {paginatedClients.length === 0 ? (
-          <div className="py-20 text-center text-zinc-700 italic text-lg font-medium bg-bento-card border border-bento-border rounded-2xl">
-            No active inquiries found.
-          </div>
-        ) : (
-          paginatedClients.map((client) => (
-            <div key={client.id} className="bg-bento-card border border-bento-border rounded-2xl p-5 space-y-4 shadow-lg backdrop-blur-md">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center font-bold text-indigo-400 text-sm">
-                    {client.name.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-zinc-100">{client.name}</p>
-                    <div className="flex items-center gap-2 text-[11px] font-mono italic">
-                      <span className="text-zinc-300">{client.phone}</span>
-                      <span className="text-zinc-600">•</span>
-                      <span className="text-indigo-400 font-bold">RM {client.price || 0}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => generateInvoice(client)}
-                    className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-500 active:text-indigo-400"
-                    title="Generate Invoice"
-                  >
-                    <FileText size={18} />
-                  </button>
-                  <button 
-                    onClick={() => openEditModal(client)}
-                    className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-500 active:text-indigo-400"
-                  >
-                    <Edit size={18} />
-                  </button>
-                  <button 
-                    onClick={() => setClientToDelete({id: client.id, name: client.name})}
-                    className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-500 active:text-red-400"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              </div>
-              
-              {client.remarks && (
-                <div className="p-3 bg-zinc-950/50 rounded-xl border border-zinc-800/50">
-                  <p className="text-[10px] uppercase font-mono tracking-widest text-zinc-500 mb-1">Remarks</p>
-                  <p className="text-xs text-zinc-400 italic line-clamp-2 leading-relaxed">"{client.remarks}"</p>
-                </div>
-              )}
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between gap-4 px-2 py-4 border-t border-zinc-800 shrink-0">
-          <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
-            Showing {(currentPage - 1) * PAGE_SIZE + 1} - {Math.min(currentPage * PAGE_SIZE, filteredClients.length)} of {filteredClients.length}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
-              className={cn(
-                "px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold transition-all",
-                currentPage === 1 ? "opacity-50 cursor-not-allowed" : "hover:text-white hover:border-zinc-600"
-              )}
-            >
-              Previous
-            </button>
-            <div className="text-xs font-bold text-zinc-400 font-mono">
-              {currentPage} / {totalPages}
-            </div>
-            <button
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages}
-              className={cn(
-                "px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold transition-all",
-                currentPage === totalPages ? "opacity-50 cursor-not-allowed" : "hover:text-white hover:border-zinc-600"
-              )}
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
-
-      <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-6">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/80 backdrop-blur-md"
-              onClick={() => setIsModalOpen(false)}
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 100 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 100 }}
-              className="relative w-full max-w-lg bg-zinc-900 border border-bento-border rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col"
-            >
-              <div className="p-6 md:p-8 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50 shrink-0">
-                <h2 className="text-xl md:text-2xl font-bold tracking-tight text-white">{editingClient ? 'Edit' : 'New Entry'}</h2>
-                <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-zinc-800 rounded-full text-zinc-500 transition-colors"><X size={20} /></button>
-              </div>
-
-              <form onSubmit={handleAddClient} className="p-6 md:p-8 space-y-6 overflow-y-auto scrollbar-hide">
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 ml-1">Client Name</label>
-                      <input required type="text" placeholder="John Doe" className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:border-indigo-500/50 text-zinc-100" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
-                    </div>
-                    <div className="space-y-2">
-                       <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 ml-1">Assignment</label>
-                       <select className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:border-indigo-500/50 text-zinc-100 appearance-none" value={formData.eventType} onChange={(e) => setFormData({...formData, eventType: e.target.value})}>
-                        <option>Wedding</option><option>Convocation</option><option>Portrait</option><option>Commercial</option><option>Event</option>
-                       </select>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                     <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 ml-1">Phone Link</label>
-                     <input required type="tel" placeholder="+60 12-345 6789" className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:border-indigo-500/50 text-zinc-100" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 ml-1">Schedule</label>
-                      <input required type="date" className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:border-indigo-500/50 text-zinc-100 placeholder-zinc-500" value={formData.eventDate} onChange={(e) => setFormData({...formData, eventDate: e.target.value})} />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 ml-1">Budget (RM)</label>
-                      <input required type="number" placeholder="2500" className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:border-indigo-500/50 text-zinc-100" value={formData.price} onChange={(e) => setFormData({...formData, price: Number(e.target.value)})} />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 ml-1">Architecture (Location)</label>
-                    <input type="text" placeholder="Venue or city" className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:border-indigo-500/50 text-zinc-100" value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 ml-1">Notes & Metadata</label>
-                    <textarea rows={3} className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:border-indigo-500/50 text-zinc-100 resize-none" value={formData.remarks} onChange={(e) => setFormData({...formData, remarks: e.target.value})} />
-                  </div>
-                </div>
-                <div className="flex gap-3 pt-4 sm:static sticky bottom-0 bg-zinc-900 pb-2 sm:pb-0">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="hidden sm:block flex-1 px-6 py-3 border border-zinc-800 rounded-xl font-medium text-zinc-400 hover:bg-zinc-800 transition-colors">Cancel</button>
-                  <button 
-                    type="submit" 
-                    disabled={isSaving}
-                    className={cn(
-                      "flex-1 sm:flex-[2] px-6 py-4 sm:py-3 bg-bento-accent text-white rounded-xl font-bold transition-all shadow-lg shadow-indigo-500/20 active:scale-95",
-                      isSaving ? "opacity-50 cursor-not-allowed" : "hover:bg-bento-accent-hover"
-                    )}
-                  >
-                    {isSaving ? 'Processing...' : (editingClient ? 'Apply Changes' : 'Commit Entry')}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {clientToDelete && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-md"
-              onClick={() => setClientToDelete(null)}
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-sm bg-zinc-900 border border-red-500/20 rounded-3xl overflow-hidden shadow-2xl p-8 text-center"
-            >
-              <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 text-red-500">
-                <Trash2 size={32} />
-              </div>
-              <h2 className="text-xl font-bold text-white mb-2">Delete Inquiry?</h2>
-              <p className="text-sm text-zinc-400 mb-8">
-                Are you sure you want to delete <strong className="text-white">{clientToDelete.name}</strong>? This action will permanently remove the client and all associated bookings.
-              </p>
-              <div className="flex gap-3">
-                <button 
-                  onClick={() => setClientToDelete(null)}
-                  className="flex-1 px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-bold transition-colors"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={confirmDeleteClient}
-                  className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold shadow-lg shadow-red-500/20 transition-all active:scale-95"
-                >
-                  Delete
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {invoiceClient && (
-          <InvoiceModal 
-            client={invoiceClient} 
-            onClose={() => setInvoiceClient(null)} 
+      <Panel className="overflow-hidden">
+        {paginated.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title={q ? 'No matches' : 'No clients yet'}
+            body={q ? `Nothing matches “${searchTerm}”. Try a phone number or shoot type.` : 'Add your first client. Their shoot will be booked automatically.'}
+            action={!q && <Button variant="primary" onClick={openAdd}><UserPlus size={16} /> New client</Button>}
           />
+        ) : (
+          <>
+            {/* Desktop table */}
+            <table className="hidden w-full text-left md:table">
+              <thead>
+                <tr className="border-b border-ink-800 text-xs text-ink-500">
+                  <th className="px-5 py-3 font-normal">Client</th>
+                  <th className="px-5 py-3 font-normal">Shoot</th>
+                  <th className="px-5 py-3 font-normal">Date</th>
+                  <th className="px-5 py-3 text-right font-normal">Fee</th>
+                  <th className="px-5 py-3"><span className="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink-800">
+                {paginated.map(client => (
+                  <tr key={client.id} className="transition-colors hover:bg-ink-850/60">
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <Monogram name={client.name} />
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-paper">{client.name}</p>
+                          <p className="font-mono text-xs text-ink-500">{client.phone}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 text-sm text-ink-300">
+                      {client.eventType || '—'}
+                      {client.location && <span className="block max-w-[22ch] truncate text-xs text-ink-500">{client.location}</span>}
+                    </td>
+                    <td className="px-5 py-3.5 font-mono text-[13px] text-ink-300 tabular">{safeDate(client.eventDate)}</td>
+                    <td className="px-5 py-3.5 text-right font-mono text-[13px] text-paper tabular">{client.price ? rm(Number(client.price)) : '—'}</td>
+                    <td className="px-3 py-3.5"><RowActions client={client} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Mobile list */}
+            <ul className="divide-y divide-ink-800 md:hidden">
+              {paginated.map(client => (
+                <li key={client.id} className="p-4">
+                  <div className="flex items-start gap-3">
+                    <Monogram name={client.name} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-paper">{client.name}</p>
+                      <p className="text-[13px] text-ink-400">
+                        {client.eventType} · {safeDate(client.eventDate, 'd MMM')} · <span className="font-mono text-paper">{rm(Number(client.price) || 0)}</span>
+                      </p>
+                      <p className="font-mono text-xs text-ink-500">{client.phone}</p>
+                    </div>
+                  </div>
+                  {client.remarks && <p className="mt-3 line-clamp-2 border-l-2 border-ink-700 pl-3 text-[13px] text-ink-400">{client.remarks}</p>}
+                  <div className="mt-2 -mr-2"><RowActions client={client} /></div>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
+      </Panel>
+
+      <Pagination page={currentPage} totalPages={totalPages} total={filteredClients.length} pageSize={PAGE_SIZE} onChange={setCurrentPage} />
+
+      {/* Add / edit sheet */}
+      <Sheet
+        open={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        title={editingClient ? 'Edit client' : 'New client'}
+        description={editingClient ? 'Changes also update their bookings.' : 'Saving also books the shoot as Booked.'}
+        footer={
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={() => setIsFormOpen(false)} className="flex-1 sm:flex-none">Cancel</Button>
+            <Button variant="primary" type="submit" form="client-form" disabled={isSaving} className="flex-[2] sm:ml-auto sm:flex-none">
+              {isSaving ? 'Saving…' : editingClient ? 'Save changes' : 'Add client'}
+            </Button>
+          </div>
+        }
+      >
+        <form id="client-form" onSubmit={handleSave} className="space-y-5">
+          <Field label="Client name" htmlFor="f-name">
+            <input id="f-name" required autoFocus type="text" autoComplete="off" placeholder="e.g. Nur Aisyah & Hakim" className={inputClass} value={formData.name} onChange={e => set({ name: e.target.value })} />
+          </Field>
+          <Field label="Phone" htmlFor="f-phone">
+            <input id="f-phone" required type="tel" inputMode="tel" pattern="[0-9+\-\s()]{7,}" title="Digits, spaces, + and - only" placeholder="+60 12-847 3091" className={inputClass + ' font-mono'} value={formData.phone} onChange={e => set({ phone: e.target.value })} />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Shoot type" htmlFor="f-type">
+              <select id="f-type" className={inputClass + ' appearance-none'} value={formData.eventType} onChange={e => set({ eventType: e.target.value })}>
+                {SHOOT_TYPES.map(t => <option key={t}>{t}</option>)}
+              </select>
+            </Field>
+            <Field label="Shoot date" htmlFor="f-date">
+              <input id="f-date" required type="date" className={inputClass} value={formData.eventDate} onChange={e => set({ eventDate: e.target.value })} />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Fee (RM)" htmlFor="f-price">
+              <input id="f-price" required type="number" min={0} step={1} inputMode="numeric" placeholder="2850" className={inputClass + ' font-mono'} value={formData.price} onChange={e => set({ price: Number(e.target.value) })} />
+            </Field>
+            <Field label="Location" htmlFor="f-loc">
+              <input id="f-loc" type="text" placeholder="Venue or city" className={inputClass} value={formData.location} onChange={e => set({ location: e.target.value })} />
+            </Field>
+          </div>
+          <Field label="Notes" htmlFor="f-notes" hint="Shot list, timing, parking, anything you'll need on the day.">
+            <textarea id="f-notes" rows={4} className={inputClass + ' h-auto resize-none py-3 leading-relaxed'} value={formData.remarks} onChange={e => set({ remarks: e.target.value })} />
+          </Field>
+        </form>
+      </Sheet>
+
+      <ConfirmDialog
+        open={!!clientToDelete}
+        title="Delete this client?"
+        body={clientToDelete && <><strong className="text-paper">{clientToDelete.name}</strong> and every booking linked to them will be permanently removed. This can't be undone.</>}
+        busy={!!isDeleting}
+        onConfirm={confirmDeleteClient}
+        onCancel={() => setClientToDelete(null)}
+      />
+
+      <AnimatePresence>
+        {invoiceClient && <InvoiceModal client={invoiceClient} onClose={() => setInvoiceClient(null)} />}
       </AnimatePresence>
     </div>
   );

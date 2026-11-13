@@ -1,68 +1,54 @@
-import { useState, useEffect, useRef } from 'react';
-import { Plus, Camera, Users, Wallet, ChevronRight, ChevronLeft, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ChevronRight, ChevronLeft, Trash2, MapPin, CalendarDays, Aperture, ArrowUpRight } from 'lucide-react';
 import { bookingService, clientService } from '../lib/firestoreService';
-import { 
-  format, 
-  parseISO, 
-  startOfMonth, 
-  endOfMonth, 
-  startOfWeek, 
-  endOfWeek, 
-  isSameMonth, 
+import {
+  format,
+  parseISO,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  isSameMonth,
   isSameDay,
   addDays,
   addMonths,
-  subMonths
+  subMonths,
+  differenceInCalendarDays,
 } from 'date-fns';
 import { cn } from '../lib/utils';
-import { motion, animate } from 'motion/react';
+import { motion } from 'motion/react';
+import {
+  Panel, PanelTitle, IconButton, Button, StatusPill, STAGES, NumberTicker, EmptyState, ConfirmDialog,
+  useToast, describeError, rm,
+} from './ui';
 
-function NumberTicker({ value, prefix = "RM " }: { value: number, prefix?: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const prevValue = useRef(value);
+type Tab = 'dashboard' | 'crm' | 'pipeline' | 'calendar' | 'finance';
 
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
+const relativeDay = (date: string) => {
+  const d = differenceInCalendarDays(parseISO(date), new Date());
+  if (d === 0) return 'Today';
+  if (d === 1) return 'Tomorrow';
+  if (d > 1 && d < 7) return `In ${d} days`;
+  return format(parseISO(date), 'EEE, d MMM');
+};
 
-    const controls = animate(prevValue.current, value, {
-      duration: 2,
-      ease: [0.16, 1, 0.3, 1], // Custom cubic-bezier for smooth finish
-      onUpdate(currentValue) {
-        node.textContent = `${prefix}${Math.round(currentValue).toLocaleString()}`;
-      },
-      onComplete() {
-        prevValue.current = value;
-      }
-    });
-
-    return () => controls.stop();
-  }, [value, prefix]);
-
-  return <span ref={ref}>{prefix}{value.toLocaleString()}</span>;
-}
-
-const Dashboard = () => {
+export default function Dashboard({ onNavigate }: { onNavigate?: (tab: Tab) => void }) {
   const [bookings, setBookings] = useState<any[]>([]);
   const [clientCount, setClientCount] = useState(0);
+  const [toDelete, setToDelete] = useState<any | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const toast = useToast();
+
   const [currentMonth, setCurrentMonth] = useState<Date>(() => {
     const saved = sessionStorage.getItem('last_viewed_month');
     return saved ? new Date(saved) : new Date();
   });
-  const [selectedDate, setSelectedDate] = useState<string | null>(() => {
-    return sessionStorage.getItem('last_selected_date') || null;
-  });
+  const [selectedDate, setSelectedDate] = useState<string | null>(() => sessionStorage.getItem('last_selected_date') || null);
 
+  useEffect(() => { sessionStorage.setItem('last_viewed_month', currentMonth.toISOString()); }, [currentMonth]);
   useEffect(() => {
-    sessionStorage.setItem('last_viewed_month', currentMonth.toISOString());
-  }, [currentMonth]);
-
-  useEffect(() => {
-    if (selectedDate) {
-      sessionStorage.setItem('last_selected_date', selectedDate);
-    } else {
-      sessionStorage.removeItem('last_selected_date');
-    }
+    if (selectedDate) sessionStorage.setItem('last_selected_date', selectedDate);
+    else sessionStorage.removeItem('last_selected_date');
   }, [selectedDate]);
 
   useEffect(() => {
@@ -71,245 +57,255 @@ const Dashboard = () => {
     return () => { unsubBookings(); unsubClients(); };
   }, []);
 
-  const handleDeleteBooking = async (id: string) => {
-    if (window.confirm('Delete this production log?')) {
-      try {
-        await bookingService.delete(id);
-      } catch (err) {
-        console.error(err);
-      }
+  const confirmDelete = async () => {
+    if (!toDelete) return;
+    setDeleting(true);
+    try {
+      await bookingService.delete(toDelete.id);
+      toast('success', `Removed the ${toDelete.eventType?.toLowerCase() || 'booking'} for ${toDelete.clientName}.`);
+    } catch (err) {
+      toast('error', describeError(err));
+    } finally {
+      setDeleting(false);
+      setToDelete(null);
     }
   };
 
   const totalRevenue = bookings.reduce((acc, b) => acc + (Number(b.price) || 0), 0);
-  
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const today = new Date();
 
   const upcomingEvents = bookings
-    .filter(b => {
-      try {
-        return b.date >= todayStr;
-      } catch { return false; }
-    })
+    .filter(b => typeof b.date === 'string' && b.date >= todayStr)
     .sort((a, b) => a.date.localeCompare(b.date));
+  const nextShoot = upcomingEvents[0];
+  const openProjects = bookings.filter(b => b.status !== 'Delivered').length;
 
-  // If no date is selected, we show events for "today"
-  const displayedBookings = selectedDate 
+  const displayedBookings = selectedDate
     ? bookings.filter(b => b.date === selectedDate)
     : bookings.filter(b => b.date === todayStr);
+  const effectiveBookings = displayedBookings.length === 0 && !selectedDate ? upcomingEvents.slice(0, 3) : displayedBookings;
+  const agendaLabel = selectedDate
+    ? format(parseISO(selectedDate), 'EEEE, d MMMM')
+    : displayedBookings.length > 0 ? 'Today' : 'Coming up';
 
-  // If we are showing today but today is empty, we fallback to showing the next few upcoming events
-  const effectiveBookings = (displayedBookings.length === 0 && !selectedDate)
-    ? upcomingEvents.slice(0, 3) 
-    : displayedBookings;
-
-  const selectedDisplayDate = selectedDate || (effectiveBookings[0]?.date || todayStr);
-
-  // Calendar Logic
+  // Calendar grid
   const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(monthStart);
-  const startDate = startOfWeek(monthStart);
-  const endDate = endOfWeek(monthEnd);
+  const calendarDays: Date[] = [];
+  for (let d = startOfWeek(monthStart); d <= endOfWeek(endOfMonth(monthStart)); d = addDays(d, 1)) calendarDays.push(d);
 
-  const calendarDays = [];
-  let day = startDate;
-  while (day <= endDate) {
-    calendarDays.push(day);
-    day = addDays(day, 1);
-  }
+  const stats = [
+    { label: 'Lifetime income', value: <NumberTicker value={totalRevenue} />, accent: true },
+    { label: 'Open projects', value: <span className="tabular">{openProjects}</span> },
+    { label: 'Shoots ahead', value: <span className="tabular">{upcomingEvents.length}</span> },
+    { label: 'Clients', value: <span className="tabular">{clientCount}</span> },
+  ];
 
   return (
-    <div className="grid grid-cols-12 gap-4 md:gap-6 h-full">
-      {/* Header Stat Cards */}
-      <div className="col-span-12 sm:col-span-6 bg-bento-card border border-bento-border rounded-2xl p-6 flex flex-col justify-between backdrop-blur-md">
-        <div className="flex justify-between items-start text-zinc-500">
-          <span className="text-xs font-semibold uppercase tracking-wider">Total Income</span>
-          <Wallet size={20} className="opacity-40" />
-        </div>
-        <div>
-          <p className="text-2xl md:text-3xl font-bold tracking-tight italic text-white flex items-center">
-            <NumberTicker value={totalRevenue} />
-          </p>
-          <div className="text-sm text-emerald-400 flex items-center gap-1 mt-1 font-medium">
-             Lifetime Earnings
-          </div>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-4 border-t border-zinc-800 pt-4 font-mono">
-          <div>
-            <p className="text-[10px] text-zinc-500 uppercase">Avg per project</p>
-            <p className="text-sm">RM {bookings.length > 0 ? (totalRevenue / bookings.length).toFixed(0) : 0}</p>
-          </div>
-        </div>
-      </div>
-      
-      <div className="col-span-12 sm:col-span-6 bg-bento-card border border-bento-border rounded-2xl p-6 flex flex-col justify-between backdrop-blur-md">
-        <div className="flex justify-between items-start text-zinc-500">
-          <span className="text-xs font-semibold uppercase tracking-wider">Active Projects</span>
-          <Camera size={20} className="opacity-40" />
-        </div>
-        <div>
-          <p className="text-2xl md:text-3xl font-bold tracking-tight italic text-indigo-400">{bookings.filter(b => b.status !== 'Delivered').length}</p>
-          <div className="text-sm text-zinc-500 flex items-center gap-1 mt-1">
-             {upcomingEvents.length} active events
-          </div>
-        </div>
+    <div className="space-y-6">
+      {/* Masthead row: next shoot + numbers */}
+      <div className="grid grid-cols-12 gap-4 md:gap-6">
+        <Panel className="relative col-span-12 overflow-hidden p-6 md:p-8 lg:col-span-7">
+          <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-safelight/[0.07] blur-3xl" />
+          <p className="eyebrow">Next shoot</p>
+          {nextShoot ? (
+            <div className="relative mt-5 flex gap-5 md:gap-7">
+              {/* Date as a slide mount */}
+              <div className="flex w-[76px] shrink-0 flex-col items-center rounded-xl bg-ink-850 py-3 ring-1 ring-inset ring-ink-800">
+                <span className="eyebrow !text-[10px]">{format(parseISO(nextShoot.date), 'MMM')}</span>
+                <span className="font-display font-semibold tracking-[-0.03em] text-4xl leading-none text-paper">{format(parseISO(nextShoot.date), 'd')}</span>
+                <span className="mt-1 text-[11px] text-ink-400">{format(parseISO(nextShoot.date), 'EEE')}</span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-safelight">{relativeDay(nextShoot.date)} · {nextShoot.eventType}</p>
+                <h2 className="mt-1 font-display font-semibold tracking-[-0.03em] text-3xl leading-[1.05] text-paper md:text-4xl">{nextShoot.clientName}</h2>
+                <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-ink-300">
+                  <span className="inline-flex items-center gap-1.5"><MapPin size={14} className="text-ink-500" />{nextShoot.location || 'Studio'}</span>
+                  <span className="font-mono tabular">{rm(Number(nextShoot.price) || 0)}</span>
+                  <StatusPill status={nextShoot.status} />
+                </div>
+                {nextShoot.remarks && (
+                  <p className="mt-4 max-w-[60ch] border-l-2 border-ink-700 pl-3 text-sm leading-relaxed text-ink-400">{nextShoot.remarks}</p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="mt-5">
+              <h2 className="font-display font-semibold tracking-[-0.03em] text-4xl text-paper">Nothing booked yet.</h2>
+              <p className="mt-2 max-w-[44ch] text-sm text-ink-400">Add a client with a shoot date and it will show up here, on the calendar and in the pipeline.</p>
+              <Button variant="primary" className="mt-5" onClick={() => onNavigate?.('crm')}>Add a client</Button>
+            </div>
+          )}
+        </Panel>
+
+        <Panel className="col-span-12 grid grid-cols-2 lg:col-span-5">
+          {stats.map((s, i) => (
+            <div
+              key={s.label}
+              className={cn(
+                'flex flex-col justify-between gap-6 p-5 md:p-6',
+                i % 2 === 0 && 'border-r border-ink-800',
+                i < 2 && 'border-b border-ink-800',
+              )}
+            >
+              <p className="text-[13px] text-ink-400">{s.label}</p>
+              <p className={cn('font-display font-semibold tracking-[-0.03em] leading-none', s.accent ? 'text-[1.75rem] md:text-[2.1rem] text-safelight' : 'text-[2rem] md:text-[2.6rem] text-paper')}>
+                {s.value}
+              </p>
+            </div>
+          ))}
+        </Panel>
       </div>
 
-      {/* Hero Section - Replaced with Bento Calendar */}
-      <section className="col-span-12 lg:col-span-8 bg-bento-card border border-bento-border rounded-2xl p-4 md:p-6 backdrop-blur-md">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-indigo-500/10 rounded flex items-center justify-center text-indigo-400">
-              <Plus size={16} />
+      {/* Calendar + agenda */}
+      <div className="grid grid-cols-12 gap-4 md:gap-6">
+        <Panel className="col-span-12 p-5 md:p-6 lg:col-span-7">
+          <PanelTitle title={format(currentMonth, 'MMMM yyyy')} meta="Tap a day to see what's booked">
+            <div className="flex gap-1">
+              <IconButton label="Previous month" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}><ChevronLeft size={17} /></IconButton>
+              <IconButton label="Next month" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}><ChevronRight size={17} /></IconButton>
             </div>
-            <div>
-              <h2 className="text-lg font-bold text-white tracking-tight">Timeline Calendar</h2>
-              <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest">{format(currentMonth, 'MMMM yyyy')}</p>
-            </div>
+          </PanelTitle>
+
+          <div className="mt-5 grid grid-cols-7 gap-1">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+              <div key={d} className="pb-2 text-center text-[11px] text-ink-500">{d.slice(0, 1)}<span className="hidden sm:inline">{d.slice(1)}</span></div>
+            ))}
+            {calendarDays.map(d => {
+              const dateStr = format(d, 'yyyy-MM-dd');
+              const count = bookings.filter(b => b.date === dateStr).length;
+              const isToday = isSameDay(d, today);
+              const inMonth = isSameMonth(d, monthStart);
+              const isSelected = selectedDate === dateStr;
+              return (
+                <button
+                  key={dateStr}
+                  onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+                  aria-pressed={isSelected}
+                  aria-label={`${format(d, 'd MMMM')}${count ? `, ${count} booking${count > 1 ? 's' : ''}` : ''}`}
+                  className={cn(
+                    'relative flex h-11 sm:h-12 flex-col items-center justify-center rounded-lg text-sm tabular transition-colors duration-150',
+                    !inMonth && 'text-ink-700',
+                    inMonth && !isSelected && 'text-ink-300 hover:bg-ink-850 hover:text-paper',
+                    isToday && !isSelected && 'ring-1 ring-inset ring-safelight/60 text-paper',
+                    count > 0 && !isSelected && inMonth && 'bg-ink-850 text-paper font-medium',
+                    isSelected && 'bg-paper text-ink-950 font-semibold',
+                  )}
+                >
+                  {format(d, 'd')}
+                  {count > 0 && (
+                    <span className="absolute bottom-1.5 flex gap-0.5">
+                      {Array.from({ length: Math.min(count, 3) }).map((_, i) => (
+                        <span key={i} className={cn('size-1 rounded-full', isSelected ? 'bg-ink-950' : 'bg-safelight')} />
+                      ))}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-500 hover:text-white transition-colors"><ChevronLeft size={16} /></button>
-            <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-500 hover:text-white transition-colors"><ChevronRight size={16} /></button>
+        </Panel>
+
+        <Panel className="col-span-12 flex flex-col p-5 md:p-6 lg:col-span-5">
+          <PanelTitle title={agendaLabel} meta={`${effectiveBookings.length} booking${effectiveBookings.length === 1 ? '' : 's'}`}>
+            {selectedDate && <Button size="sm" variant="ghost" onClick={() => setSelectedDate(null)}>Back to today</Button>}
+          </PanelTitle>
+
+          <div className="mt-4 flex-1 divide-y divide-ink-800">
+            {effectiveBookings.length > 0 ? effectiveBookings.map((event, idx) => (
+              <motion.article
+                key={event.id || idx}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.04, duration: 0.3 }}
+                className="group flex gap-4 py-4 first:pt-1"
+              >
+                <div className="w-11 shrink-0 pt-0.5 text-center">
+                  <p className="text-[10px] uppercase tracking-wider text-ink-500">{format(parseISO(event.date), 'EEE')}</p>
+                  <p className="font-display font-semibold tracking-[-0.03em] text-2xl leading-none text-paper">{format(parseISO(event.date), 'd')}</p>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-[15px] font-semibold text-paper">{event.clientName}</h3>
+                      <p className="text-[13px] text-ink-400">{event.eventType} · {event.location || 'Studio'}</p>
+                    </div>
+                    <IconButton
+                      label={`Delete booking for ${event.clientName}`}
+                      tone="danger"
+                      className="-mr-2 opacity-60 group-hover:opacity-100 focus-visible:opacity-100"
+                      onClick={() => setToDelete(event)}
+                    >
+                      <Trash2 size={15} />
+                    </IconButton>
+                  </div>
+                  <div className="mt-2 flex items-center gap-3">
+                    <StatusPill status={event.status} />
+                    <span className="font-mono text-xs text-ink-500 tabular">{rm(Number(event.price) || 0)}</span>
+                  </div>
+                  {event.remarks && <p className="mt-2 line-clamp-2 text-[13px] leading-relaxed text-ink-400">{event.remarks}</p>}
+                </div>
+              </motion.article>
+            )) : (
+              <EmptyState icon={Aperture} title="A free day" body="No shoots on this date. Good time for culling and edits." className="py-10" />
+            )}
           </div>
+
+          <Button variant="secondary" className="mt-4 w-full justify-between" onClick={() => onNavigate?.('calendar')}>
+            <span className="inline-flex items-center gap-2"><CalendarDays size={15} /> Open full calendar</span>
+            <ChevronRight size={15} className="text-ink-500" />
+          </Button>
+        </Panel>
+      </div>
+
+      {/* Pipeline strip */}
+      <Panel className="overflow-hidden">
+        <div className="flex items-center justify-between px-5 pt-5 md:px-6">
+          <PanelTitle title="Production" meta="Where each project sits right now" />
+          <Button size="sm" variant="ghost" onClick={() => onNavigate?.('pipeline')}>
+            Pipeline <ArrowUpRight size={14} />
+          </Button>
         </div>
-        
-        <div className="grid grid-cols-7 gap-1">
-          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-            <div key={i} className="text-center text-[10px] font-mono text-zinc-600 py-1 font-bold">{d}</div>
-          ))}
-          {calendarDays.map((d, i) => {
-            const dateStr = format(d, 'yyyy-MM-dd');
-            const hasEvent = bookings.some(b => b.date === dateStr);
-            const isToday = isSameDay(d, today);
-            const isCurrMonth = isSameMonth(d, monthStart);
-            const isSelected = selectedDate === dateStr;
-            
+        <div className="mt-4 grid grid-cols-1 border-t border-ink-800 sm:grid-cols-2 lg:grid-cols-5">
+          {STAGES.map((stage, i) => {
+            const items = bookings.filter(b => b.status === stage.id);
             return (
-              <button 
-                key={i} 
-                onClick={() => setSelectedDate(dateStr)}
+              <div
+                key={stage.id}
                 className={cn(
-                  "relative aspect-square min-h-[44px] flex items-center justify-center rounded-lg text-sm transition-all",
-                  isToday && !isSelected && "bg-indigo-600/20 text-indigo-400 font-bold",
-                  isSelected && "bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-500/30 ring-2 ring-indigo-400 ring-offset-2 ring-offset-zinc-950",
-                  !isSelected && (isCurrMonth ? "hover:bg-zinc-800 text-zinc-300" : "text-zinc-800"),
-                  hasEvent && !isSelected && "bg-indigo-500/10 ring-1 ring-indigo-500/30 text-indigo-400"
+                  'min-h-[168px] p-5 border-ink-800',
+                  i < STAGES.length - 1 && 'border-b lg:border-b-0 lg:border-r',
+                  i % 2 === 0 && i < STAGES.length - 1 && 'sm:border-r',
                 )}
               >
-                <span className="relative z-10">{format(d, 'd')}</span>
-                {hasEvent && !isSelected && (
-                  <div className="absolute bottom-2 w-1.5 h-1.5 bg-indigo-500 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
-                )}
-              </button>
+                <div className="flex items-baseline justify-between">
+                  <StatusPill status={stage.id} />
+                  <span className="font-display font-semibold tracking-[-0.03em] text-2xl leading-none text-paper tabular">{items.length}</span>
+                </div>
+                <ul className="mt-4 space-y-2.5">
+                  {items.slice(0, 3).map(b => (
+                    <li key={b.id} className="min-w-0">
+                      <p className="truncate text-sm text-paper">{b.clientName}</p>
+                      <p className="truncate text-xs text-ink-500">{b.eventType} · <span className="font-mono">{rm(Number(b.price) || 0)}</span></p>
+                    </li>
+                  ))}
+                  {items.length === 0 && <li className="text-xs text-ink-500">{stage.hint}: none</li>}
+                  {items.length > 3 && <li className="text-xs text-ink-500">+{items.length - 3} more</li>}
+                </ul>
+              </div>
             );
           })}
         </div>
-      </section>
+      </Panel>
 
-      {/* Featured Appointment / Next Event Sidebar */}
-      <div className="col-span-12 lg:col-span-4 bg-bento-card border border-bento-border rounded-2xl p-6 backdrop-blur-md flex flex-col justify-between">
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-indigo-400 font-bold block">
-              {selectedDate ? 'Day Calendar' : 'Upcoming Event'}: {format(parseISO(selectedDisplayDate), 'MMM dd')}
-            </span>
-            {selectedDate && (
-              <button 
-                onClick={() => setSelectedDate(null)}
-                className="text-[10px] text-zinc-500 hover:text-white transition-colors underline decoration-zinc-800 underline-offset-4"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-
-          <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 scrollbar-hide">
-            {effectiveBookings.length > 0 ? effectiveBookings.map((event, idx) => (
-              <div key={event.id || idx} className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="flex items-center gap-4">
-                  <div className="min-w-[50px] h-12 bg-zinc-900 border border-zinc-800 rounded-xl flex flex-col items-center justify-center">
-                    <span className="text-[8px] text-zinc-500 uppercase leading-none mb-1">{format(parseISO(event.date), 'EEE')}</span>
-                    <span className="text-xl font-bold text-white leading-none">{format(parseISO(event.date), 'dd')}</span>
-                  </div>
-                  <div className="overflow-hidden flex-grow">
-                    <h3 className="font-bold text-white text-base leading-tight truncate">{event.clientName}</h3>
-                    <p className="text-indigo-400 text-[10px] font-semibold uppercase tracking-tight">{event.eventType}</p>
-                  </div>
-                  <button 
-                    onClick={() => handleDeleteBooking(event.id)}
-                    className="p-2 hover:bg-rose-500/10 text-zinc-600 hover:text-rose-500 rounded-lg transition-all"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-                
-                <div className="space-y-3 py-4 border-y border-zinc-800/50">
-                  <div className="flex items-start gap-3">
-                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 shrink-0" />
-                     <div className="space-y-1">
-                       <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Location</p>
-                       <p className="text-zinc-300 text-sm leading-snug">{event.location || 'Remote/Studio'}</p>
-                     </div>
-                  </div>
-                  
-                  <div className="flex items-start gap-3">
-                     <div className="w-1.5 h-1.5 rounded-full bg-zinc-600 mt-1.5 shrink-0" />
-                     <div className="space-y-1">
-                       <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Remarks & Clues</p>
-                       <p className="text-zinc-400 text-xs italic leading-relaxed">
-                         "{event.remarks || 'No specific logistics noted for this booking.'}"
-                       </p>
-                     </div>
-                  </div>
-                </div>
-              </div>
-            )) : (
-              <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 opacity-40">
-                <div className="w-16 h-16 bg-zinc-900/50 rounded-2xl flex items-center justify-center text-zinc-600 border border-zinc-800">
-                  <Camera size={28} />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-zinc-400 font-bold text-sm">Open Schedule</p>
-                  <p className="text-zinc-600 text-[10px] italic">No production logs for this date.</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-        
-        <div className="mt-6 pt-4 border-t border-zinc-800">
-          <button className="w-full py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-300 font-bold text-sm hover:bg-zinc-800 transition-all flex items-center justify-center gap-2">
-            Detailed Daily Calendar <ChevronRight size={14} />
-          </button>
-        </div>
-      </div>
-
-      {/* Large Kanban Stage Preview (Simplified for Bento) */}
-      <div className="col-span-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {['Booked', 'Shot', 'Editing', 'Delivered'].map((status) => (
-          <div key={status} className="bg-bento-card border border-bento-border rounded-2xl p-4 flex flex-col gap-4 overflow-hidden backdrop-blur-md min-h-[200px]">
-            <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest flex justify-between items-center px-1">
-              {status} 
-              <span className="w-5 h-5 flex items-center justify-center bg-zinc-800 rounded text-[9px]">
-                {bookings.filter(b => b.status === status).length}
-              </span>
-            </div>
-            <div className="space-y-3 overflow-y-auto pr-1 flex-grow scrollbar-hide">
-              {bookings.filter(b => b.status === status).slice(0, 3).map(b => (
-                <div key={b.id} className="p-3 bg-zinc-800/40 border border-zinc-700/50 rounded-xl space-y-2 group hover:bg-zinc-800/60 transition-colors">
-                  <p className="text-sm font-medium text-zinc-200">{b.clientName}</p>
-                  <div className="text-[10px] text-indigo-400 font-semibold uppercase tracking-tight">
-                    {b.eventType} • RM {b.price}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+      <ConfirmDialog
+        open={!!toDelete}
+        title="Delete this booking?"
+        body={toDelete && <>The {toDelete.eventType?.toLowerCase()} for <strong className="text-paper">{toDelete.clientName}</strong> on {format(parseISO(toDelete.date), 'd MMMM yyyy')} will be removed. The client record stays.</>}
+        busy={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setToDelete(null)}
+      />
     </div>
   );
-};
-
-export default Dashboard;
+}

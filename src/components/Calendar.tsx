@@ -1,92 +1,85 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameMonth, isSameDay, addDays, parseISO } from 'date-fns';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameMonth, isSameDay, addDays } from 'date-fns';
 import { cn } from '../lib/utils';
 import { bookingService } from '../lib/firestoreService';
+import { PageHeader, Panel, IconButton, Button, stageOf } from './ui';
 
 export default function Calendar() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [events, setEvents] = useState<any[]>([]);
 
-  useEffect(() => {
-    return bookingService.subscribe(setEvents);
-  }, []);
+  useEffect(() => bookingService.subscribe(setEvents), []);
 
-  const renderHeader = () => (
-    <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-4 md:mb-8">
-      <div>
-        <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 font-bold">Temporal Calendar</span>
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tighter text-white mt-1">{format(currentMonth, 'MMMM yyyy')}</h1>
-      </div>
-      <div className="flex gap-2 w-full sm:w-auto">
-        <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="flex-1 sm:flex-none p-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-100 transition-colors flex justify-center"><ChevronLeft size={20} /></button>
-        <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="flex-1 sm:flex-none p-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-100 transition-colors flex justify-center"><ChevronRight size={20} /></button>
-      </div>
-    </header>
-  );
+  const monthStart = startOfMonth(currentMonth);
+  const days: Date[] = [];
+  for (let d = startOfWeek(monthStart); d <= endOfWeek(endOfMonth(monthStart)); d = addDays(d, 1)) days.push(d);
 
-  const renderDays = () => (
-    <div className="grid grid-cols-7 mb-2 border-b border-zinc-800">
-      {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
-        <div key={idx} className="py-3 md:py-4 text-center text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 font-bold">{day}</div>
-      ))}
-    </div>
-  );
-
-  const renderCells = () => {
-    const monthStart = startOfMonth(currentMonth);
-    const monthEnd = endOfMonth(monthStart);
-    const startDate = startOfWeek(monthStart);
-    const endDate = endOfWeek(monthEnd);
-
-    const calendarWeeks = [];
-    let day = startDate;
-
-    while (day <= endDate) {
-      const days = [];
-      for (let i = 0; i < 7; i++) {
-        const dateStr = format(day, 'yyyy-MM-dd');
-        const dayEvents = events.filter(e => e.date === dateStr);
-        const isToday = isSameDay(day, new Date());
-        const isCurrMonth = isSameMonth(day, monthStart);
-
-        days.push(
-          <div 
-            key={day.toString()} 
-            className={cn(
-              "min-h-[70px] md:min-h-[120px] p-2 md:p-4 border border-zinc-900 transition-all bg-zinc-900/20 relative group hover:bg-zinc-800/40", 
-              !isCurrMonth ? "text-zinc-700" : "text-zinc-100", 
-              isToday && "bg-indigo-500/5"
-            )}
-          >
-            <span className={cn("text-[10px] md:text-xs font-mono font-bold", isToday && "text-indigo-400")}>{format(day, 'd')}</span>
-            <div className="mt-1 md:mt-3 space-y-1 md:space-y-1.5 flex flex-col items-start overflow-hidden">
-              {dayEvents.slice(0, 3).map(event => (
-                <div key={event.id} className="w-full px-1.5 py-0.5 md:px-2 md:py-1 bg-indigo-600/90 text-white rounded text-[8px] md:text-[9px] font-bold leading-tight truncate border border-indigo-400/20 shadow-lg shadow-indigo-500/20">
-                  <span className="md:inline hidden">{event.clientName}</span>
-                  <span className="md:hidden inline-block w-1.5 h-1.5 bg-white rounded-full mx-auto" />
-                </div>
-              ))}
-              {dayEvents.length > 3 && (
-                <div className="text-[8px] text-zinc-500 font-mono pl-1">+{dayEvents.length - 3}</div>
-              )}
-            </div>
-          </div>
-        );
-        day = addDays(day, 1);
-      }
-      calendarWeeks.push(<div className="grid grid-cols-7" key={day.toString()}>{days}</div>);
-    }
-    return <div className="border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl bg-zinc-900/10 backdrop-blur-md">{calendarWeeks}</div>;
-  };
+  const monthPrefix = format(currentMonth, 'yyyy-MM');
+  const monthCount = events.filter(e => typeof e.date === 'string' && e.date.startsWith(monthPrefix)).length;
 
   return (
-    <div className="space-y-4 h-full flex flex-col">
-      {renderHeader()}
-      <div className="flex-grow">
-        {renderDays()}
-        {renderCells()}
-      </div>
+    <div className="space-y-6">
+      <PageHeader eyebrow={`${monthCount} shoot${monthCount === 1 ? '' : 's'} this month`} title={format(currentMonth, 'MMMM yyyy')}>
+        <Button size="sm" variant="ghost" onClick={() => setCurrentMonth(new Date())}>Today</Button>
+        <IconButton label="Previous month" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}><ChevronLeft size={18} /></IconButton>
+        <IconButton label="Next month" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}><ChevronRight size={18} /></IconButton>
+      </PageHeader>
+
+      <Panel className="overflow-hidden">
+        <div className="grid grid-cols-7 border-b border-ink-800">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+            <div key={day} className="py-3 text-center text-xs text-ink-500">
+              {day.slice(0, 1)}<span className="hidden md:inline">{day.slice(1)}</span>
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7">
+          {days.map((day, i) => {
+            const dateStr = format(day, 'yyyy-MM-dd');
+            const dayEvents = events.filter(e => e.date === dateStr);
+            const isToday = isSameDay(day, new Date());
+            const inMonth = isSameMonth(day, monthStart);
+            return (
+              <div
+                key={dateStr}
+                className={cn(
+                  'min-h-[78px] border-ink-800 p-1.5 md:min-h-[128px] md:p-2.5',
+                  (i + 1) % 7 !== 0 && 'border-r',
+                  i < days.length - 7 && 'border-b',
+                  !inMonth && 'bg-ink-950/50',
+                )}
+              >
+                <span
+                  className={cn(
+                    'inline-grid size-6 place-items-center rounded-md text-xs tabular md:size-7 md:text-[13px]',
+                    inMonth ? 'text-ink-300' : 'text-ink-700',
+                    isToday && 'bg-safelight font-semibold text-safelight-ink',
+                  )}
+                >
+                  {format(day, 'd')}
+                </span>
+                <div className="mt-1 space-y-1">
+                  {dayEvents.slice(0, 3).map(event => {
+                    const s = stageOf(event.status);
+                    return (
+                      <div
+                        key={event.id}
+                        title={`${event.clientName} · ${event.eventType} · ${s.id}`}
+                        className="flex items-center gap-1.5 rounded-md bg-ink-850 px-1.5 py-1 ring-1 ring-inset ring-ink-800 md:px-2"
+                      >
+                        <span className={cn('size-1.5 shrink-0 rounded-full', s.dot)} />
+                        <span className="hidden truncate text-[11.5px] font-medium text-paper md:block">{event.clientName}</span>
+                      </div>
+                    );
+                  })}
+                  {dayEvents.length > 3 && <p className="pl-1 text-[10.5px] text-ink-500">+{dayEvents.length - 3} more</p>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Panel>
     </div>
   );
 }
