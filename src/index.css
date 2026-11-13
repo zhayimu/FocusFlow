@@ -84,10 +84,11 @@
       visibility: hidden;
     }
     #invoice-print-area, #invoice-print-area *,
-    #payslip-content, #payslip-content * {
+    #payslip-content, #payslip-content *,
+    #invoice-content, #invoice-content * {
       visibility: visible;
     }
-    #invoice-print-area, #payslip-content {
+    #invoice-print-area, #payslip-content, #invoice-content {
       position: absolute;
       left: 0;
       top: 0;

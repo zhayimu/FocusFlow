@@ -10,7 +10,9 @@ import {
   orderBy, 
   serverTimestamp,
   Timestamp,
-  onSnapshot
+  onSnapshot,
+  getDoc,
+  runTransaction
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 
@@ -209,4 +211,72 @@ export const expenseService = {
       callback(data);
     }, (e) => handleFirestoreError(e, OperationType.GET, path));
   }
+};
+
+// Invoices API
+// Numbers are INV-<year>-<0001>, sequential per user per year. A transaction on
+// counters/{uid} reserves the number and writes the invoice in one step, so two
+// tabs can never issue the same number.
+export const formatInvoiceNumber = (year: number, seq: number) => `INV-${year}-${String(seq).padStart(4, '0')}`;
+
+export const invoiceService = {
+  subscribe(callback: (data: any[]) => void) {
+    const path = 'invoices';
+    if (!auth.currentUser) return () => {};
+    // Single-field filter only (no composite index needed); sorted client-side.
+    const q = query(collection(db, path), where('userId', '==', auth.currentUser.uid));
+    return onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs
+        .map(d => ({ id: d.id, ...d.data() } as any))
+        .sort((a, b) => String(b.number).localeCompare(String(a.number)));
+      callback(data);
+    }, (e) => handleFirestoreError(e, OperationType.LIST, path));
+  },
+
+  /** The number the next saved invoice will get (display only; not reserved). */
+  async peekNextNumber(year = new Date().getFullYear()) {
+    if (!auth.currentUser) return formatInvoiceNumber(year, 1);
+    try {
+      const snap = await getDoc(doc(db, 'counters', auth.currentUser.uid));
+      const seq = (snap.exists() && snap.data().invoiceSeq?.[String(year)]) || 0;
+      return formatInvoiceNumber(year, seq + 1);
+    } catch {
+      return formatInvoiceNumber(year, 1);
+    }
+  },
+
+  /** Reserve the next number and save the invoice. Returns the issued number. */
+  async create(data: any): Promise<string> {
+    const path = 'invoices';
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error(JSON.stringify({ error: 'Not signed in', operationType: OperationType.CREATE, path }));
+    const year = new Date().getFullYear();
+    try {
+      return await runTransaction(db, async (tx) => {
+        const counterRef = doc(db, 'counters', uid);
+        const counterSnap = await tx.get(counterRef);
+        const seqMap = (counterSnap.exists() && counterSnap.data().invoiceSeq) || {};
+        const seq = (seqMap[String(year)] || 0) + 1;
+        const number = formatInvoiceNumber(year, seq);
+        tx.set(counterRef, { userId: uid, invoiceSeq: { ...seqMap, [String(year)]: seq }, updatedAt: serverTimestamp() });
+        tx.set(doc(db, 'invoices', `${uid}_${number}`), {
+          ...data,
+          number,
+          userId: uid,
+          createdAt: serverTimestamp(),
+        });
+        return number;
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, path);
+      throw e;
+    }
+  },
+
+  async delete(id: string) {
+    const path = `invoices/${id}`;
+    try {
+      await deleteDoc(doc(db, 'invoices', id));
+    } catch (e) { handleFirestoreError(e, OperationType.DELETE, path); }
+  },
 };

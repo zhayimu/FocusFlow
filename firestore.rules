@@ -107,5 +107,35 @@ service cloud.firestore {
                       incoming().diff(existing()).affectedKeys().hasOnly(['amount', 'date', 'description', 'category']);
       allow delete: if isOwner(existing()) || isAdmin() || (isSignedIn() && !existing().keys().hasAll(['userId']));
     }
+
+    function isValidInvoice(data) {
+      return data.keys().hasAll(['number', 'userId', 'clientName', 'items', 'total', 'createdAt']) &&
+             data.keys().size() <= 25 &&
+             data.userId == request.auth.uid &&
+             data.number is string && data.number.size() <= 32 &&
+             data.clientName is string && data.clientName.size() > 0 && data.clientName.size() <= 120 &&
+             data.items is list && data.items.size() <= 50 &&
+             data.total is number &&
+             data.createdAt == request.time;
+    }
+
+    // Per-user invoice number counter: counters/{uid}
+    match /counters/{userId} {
+      allow get: if isSignedIn() && request.auth.uid == userId;
+      allow create, update: if isSignedIn() && request.auth.uid == userId &&
+                              incoming().userId == userId &&
+                              incoming().keys().hasOnly(['userId', 'invoiceSeq', 'updatedAt']) &&
+                              incoming().invoiceSeq is map;
+    }
+
+    // Issued invoices. Immutable once issued (delete allowed, no edits).
+    match /invoices/{invoiceId} {
+      allow get: if isOwner(existing()) || isAdmin();
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(invoiceId) &&
+                      invoiceId == request.auth.uid + '_' + incoming().number &&
+                      isValidInvoice(incoming());
+      allow delete: if isOwner(existing()) || isAdmin();
+    }
   }
 }

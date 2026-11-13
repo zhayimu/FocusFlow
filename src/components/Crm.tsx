@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, UserPlus, X, FileText, Pencil, Trash2, Download, Printer, Users, Aperture } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useEffect } from 'react';
+import { Search, UserPlus, FileText, Pencil, Trash2, Users, Aperture } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { clientService, bookingService } from '../lib/firestoreService';
-import { downloadElementAsPdf, DOC } from '../lib/pdf';
+import InvoiceGenerator from './InvoiceGenerator';
 import {
   PageHeader, Panel, Button, IconButton, Field, inputClass, Sheet, ConfirmDialog, EmptyState, Pagination, Monogram,
   useToast, describeError, rm,
@@ -26,148 +25,6 @@ const safeDate = (d?: string, fmt = 'd MMM yyyy') => {
   if (!d) return '—';
   try { return format(parseISO(d), fmt); } catch { return d; }
 };
-
-/* ------------------------------------------------------------------ */
-/* Invoice document                                                    */
-/* ------------------------------------------------------------------ */
-
-function InvoiceModal({ client, onClose }: { client: any; onClose: () => void }) {
-  const toast = useToast();
-  const [isGenerating, setIsGenerating] = useState(false);
-  const invoiceRef = useRef<HTMLDivElement>(null);
-
-  // Stable for the life of the modal (previously regenerated on every render).
-  const { today, dueDate, invoiceNumber } = useMemo(() => {
-    const t = new Date();
-    return {
-      today: t,
-      dueDate: new Date(t.getTime() + 14 * 24 * 60 * 60 * 1000),
-      invoiceNumber: `INV-${t.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-    };
-  }, []);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  const amount = Number(client.price) || 0;
-
-  const downloadPDF = async () => {
-    if (!invoiceRef.current) return;
-    setIsGenerating(true);
-    try {
-      await downloadElementAsPdf(invoiceRef.current, 'invoice-content', `${invoiceNumber}_${client.name.replace(/\s+/g, '_')}.pdf`);
-      toast('success', `${invoiceNumber} saved as PDF.`);
-    } catch (error) {
-      console.error('PDF generation failed:', error);
-      toast('error', 'Could not create the PDF. Try again, or use Print instead.');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink-950/90 backdrop-blur-sm sm:p-6 print:bg-white print:p-0" role="dialog" aria-modal="true" aria-label={`Invoice for ${client.name}`}>
-      <motion.div
-        id="invoice-print-area"
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 12 }}
-        transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
-        className="flex h-full w-full flex-col overflow-hidden bg-ink-900 ring-1 ring-ink-800 sm:h-[92dvh] sm:max-w-4xl sm:rounded-[1.25rem] print:h-auto print:max-w-none print:rounded-none print:bg-white print:ring-0"
-      >
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-ink-800 px-4 py-3 sm:px-6 print:hidden">
-          <div className="min-w-0">
-            <p className="font-display font-semibold tracking-[-0.03em] text-xl leading-tight text-paper">Invoice</p>
-            <p className="mt-1 truncate font-mono text-xs text-ink-500">{invoiceNumber} · {client.name}</p>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Button size="sm" variant="ghost" onClick={() => window.print()}><Printer size={14} /> <span className="hidden sm:inline">Print</span></Button>
-            <Button size="sm" variant="primary" onClick={downloadPDF} disabled={isGenerating}>
-              <Download size={14} /> {isGenerating ? 'Preparing…' : 'Download PDF'}
-            </Button>
-            <IconButton label="Close invoice" onClick={onClose}><X size={18} /></IconButton>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto bg-ink-950 p-0 sm:p-8 print:bg-white print:p-0">
-          <div
-            id="invoice-content"
-            ref={invoiceRef}
-            className="mx-auto w-full max-w-[800px] space-y-12 p-7 sm:min-h-[1060px] sm:p-14 sm:shadow-[0_30px_60px_-30px_rgba(0,0,0,0.8)]"
-            style={{ backgroundColor: '#ffffff', color: DOC.ink, fontFamily: '"Geist", system-ui, sans-serif' }}
-          >
-            {/* Masthead */}
-            <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 600, letterSpacing: '-0.03em', fontSize: 40, lineHeight: 1, color: DOC.ink }}>zhayimuuu</p>
-                <p className="mt-2 text-xs" style={{ color: DOC.muted }}>Photography · Malaysia</p>
-              </div>
-              <div className="sm:text-right">
-                <p style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 600, letterSpacing: '-0.03em', fontSize: 30, lineHeight: 1, color: DOC.accent }}>Invoice</p>
-                <p className="mt-2 font-mono text-xs" style={{ color: DOC.muted }}>{invoiceNumber}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-8 border-t pt-8 sm:grid-cols-2" style={{ borderTopColor: DOC.line }}>
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-[0.08em]" style={{ color: DOC.muted }}>Billed to</p>
-                <p className="mt-3 text-lg font-semibold" style={{ color: DOC.ink }}>{client.name}</p>
-                <p className="mt-1 text-sm" style={{ color: DOC.body }}>{client.phone}</p>
-                {client.location && <p className="text-sm" style={{ color: DOC.body }}>{client.location}</p>}
-              </div>
-              <div className="space-y-2 sm:text-right">
-                <p className="text-[11px] font-medium uppercase tracking-[0.08em]" style={{ color: DOC.muted }}>Dates</p>
-                <p className="mt-3 text-sm" style={{ color: DOC.body }}>Issued <span className="font-mono font-medium" style={{ color: DOC.ink }}>{format(today, 'd MMM yyyy')}</span></p>
-                <p className="text-sm" style={{ color: DOC.body }}>Due <span className="font-mono font-medium" style={{ color: DOC.accent }}>{format(dueDate, 'd MMM yyyy')}</span></p>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[420px] text-left">
-                <thead>
-                  <tr className="text-[11px] font-medium uppercase tracking-[0.08em]" style={{ color: DOC.muted, borderBottom: `1.5px solid ${DOC.ink}` }}>
-                    <th className="pb-3 font-medium">Description</th>
-                    <th className="pb-3 text-center font-medium">Shoot date</th>
-                    <th className="pb-3 text-right font-medium">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr style={{ borderBottom: `1px solid ${DOC.line}` }}>
-                    <td className="py-5 pr-4 align-top">
-                      <p className="font-semibold" style={{ color: DOC.ink }}>{client.eventType} photography</p>
-                      <p className="mt-1 text-sm" style={{ color: DOC.body }}>{client.remarks || 'Coverage, culling, colour grading and online gallery delivery.'}</p>
-                    </td>
-                    <td className="py-5 text-center align-top font-mono text-sm" style={{ color: DOC.body }}>{safeDate(client.eventDate)}</td>
-                    <td className="py-5 text-right align-top font-mono font-medium" style={{ color: DOC.ink }}>{rm(amount)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex justify-end">
-              <div className="w-full space-y-3 sm:w-72">
-                <div className="flex justify-between text-sm" style={{ color: DOC.body }}><span>Subtotal</span><span className="font-mono">{rm(amount)}</span></div>
-                <div className="flex justify-between text-sm" style={{ color: DOC.body }}><span>Tax (0%)</span><span className="font-mono">RM 0</span></div>
-                <div className="flex items-baseline justify-between pt-4" style={{ borderTop: `1.5px solid ${DOC.ink}` }}>
-                  <span className="text-sm font-semibold" style={{ color: DOC.ink }}>Total due</span>
-                  <span style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 600, letterSpacing: '-0.03em', fontSize: 34, lineHeight: 1, color: DOC.ink }}>{rm(amount)}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2 pt-16 text-center">
-              <p style={{ fontFamily: '"Geist", system-ui, sans-serif', fontWeight: 600, letterSpacing: '-0.03em', fontSize: 22, color: DOC.body }}>Thank you for letting us photograph your day.</p>
-              <p className="font-mono text-[11px]" style={{ color: DOC.muted }}>zaimzaidi04@gmail.com · www.zhayimuuu.my</p>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /* Clients                                                             */
@@ -459,9 +316,7 @@ export default function Crm() {
         onCancel={() => setClientToDelete(null)}
       />
 
-      <AnimatePresence>
-        {invoiceClient && <InvoiceModal client={invoiceClient} onClose={() => setInvoiceClient(null)} />}
-      </AnimatePresence>
+      <InvoiceGenerator open={!!invoiceClient} client={invoiceClient || undefined} onClose={() => setInvoiceClient(null)} />
     </div>
   );
 }

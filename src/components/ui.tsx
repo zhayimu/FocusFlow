@@ -85,7 +85,7 @@ type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 const buttonBase =
   'inline-flex items-center justify-center gap-2 rounded-[var(--radius-control)] text-sm font-medium ' +
   'transition-[background-color,color,box-shadow,transform] duration-200 ease-[var(--ease-out-soft)] ' +
-  'active:translate-y-px disabled:opacity-50 disabled:pointer-events-none select-none';
+  'active:translate-y-px disabled:opacity-50 disabled:pointer-events-none select-none whitespace-nowrap';
 
 const buttonVariants: Record<ButtonVariant, string> = {
   primary: 'bg-safelight text-safelight-ink hover:bg-safelight-strong shadow-[0_8px_24px_-12px_rgba(224,164,88,0.55)]',
