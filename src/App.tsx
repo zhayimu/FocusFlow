@@ -7,11 +7,15 @@ import {
   LineChart,
   Aperture,
   LogOut,
+  Bell,
+  BellRing,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { cn } from './lib/utils';
 import { useAuth } from './lib/AuthContext';
+import { useShootReminders, whenLabel, REMIND_DAYS } from './lib/reminders';
+import { useToast } from './components/ui';
 
 import Dashboard from './components/Dashboard';
 import Crm from './components/Crm';
@@ -98,9 +102,34 @@ function LoginScreen({ login, loggingIn }: { login: () => void; loggingIn: boole
   );
 }
 
+function ReminderBell({ upcoming, permission, enable, onOpen, className }: ReturnType<typeof useShootReminders> & { onOpen: () => void; className?: string }) {
+  const needsPermission = permission === 'default';
+  const label = needsPermission
+    ? 'Turn on shoot reminders'
+    : upcoming.length
+      ? `${upcoming.length} shoot${upcoming.length > 1 ? 's' : ''} in the next ${REMIND_DAYS} days. Next: ${upcoming[0].clientName} ${whenLabel(upcoming[0].daysLeft)}`
+      : `No shoots in the next ${REMIND_DAYS} days`;
+  return (
+    <button
+      onClick={needsPermission ? enable : onOpen}
+      aria-label={label}
+      title={label}
+      className={cn('relative grid size-10 place-items-center rounded-lg text-ink-400 transition-colors hover:bg-ink-900 hover:text-paper', className)}
+    >
+      {upcoming.length ? <BellRing size={18} className="text-safelight" /> : <Bell size={18} />}
+      {upcoming.length > 0 && (
+        <span className="absolute right-1 top-1 grid min-w-4 place-items-center rounded-full bg-safelight px-1 text-[10px] font-semibold leading-4 text-safelight-ink tabular">{upcoming.length}</span>
+      )}
+      {needsPermission && <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-rust" />}
+    </button>
+  );
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const { user, loading, loggingIn, login, logout } = useAuth();
+  const toast = useToast();
+  const reminders = useShootReminders(user?.uid, msg => toast('success', msg));
 
   if (loading) {
     return (
@@ -181,6 +210,7 @@ export default function App() {
       {/* Mobile header */}
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-ink-800 bg-ink-950/85 px-4 py-3 backdrop-blur-md md:hidden">
         <Wordmark compact />
+        <ReminderBell {...reminders} onOpen={() => setActiveTab('calendar')} className="ml-auto" />
         <button onClick={logout} aria-label="Sign out" className="grid size-10 place-items-center rounded-lg text-ink-400 hover:text-rust">
           <LogOut size={18} />
         </button>
@@ -188,9 +218,15 @@ export default function App() {
 
       <main id="main" className="min-w-0 px-4 pb-28 pt-6 md:px-10 md:pb-16 md:pt-10">
         <div className="mx-auto max-w-[1180px]">
-          <p className="mb-6 hidden text-sm text-ink-500 md:block">
-            {format(new Date(), 'EEEE, d MMMM')}{firstName ? ` · Hi ${firstName}` : ''}
-          </p>
+          <div className="mb-6 hidden items-center justify-between md:flex">
+            <p className="text-sm text-ink-500">{format(new Date(), 'EEEE, d MMMM')}{firstName ? ` · Hi ${firstName}` : ''}</p>
+            <div className="flex items-center gap-2">
+              {reminders.permission === 'default' && (
+                <button onClick={reminders.enable} className="text-xs text-ink-400 underline decoration-ink-700 underline-offset-4 hover:text-paper">Turn on shoot reminders</button>
+              )}
+              <ReminderBell {...reminders} onOpen={() => setActiveTab('calendar')} />
+            </div>
+          </div>
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
